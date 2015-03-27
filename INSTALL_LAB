@@ -1,0 +1,16 @@
+
+checkout the eecs467 repo:
+cd ~/
+git clone <url for your fork of the class repository> eecs467
+
+
+add the following 3 lines to your ~/.bashrc file:
+export VX_SHADER_PATH=~/eecs467/src/vx/shaders
+export VX_FONT_PATH=~/eecs467/src/vx/fonts
+export CLASSPATH=$CLASSPATH:~/eecs467/java/lcmtypes.jar
+
+You will need to reopen the terminal for the changes to take effect.
+
+build the code:
+cd ~/eecs467
+make clean && make

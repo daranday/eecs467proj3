@@ -1,0 +1,7 @@
+struct maebot_velocity_command_t
+{
+    int64_t utime;
+    
+    float linear_velocity;      // m/s
+    float angular_velocity;     // m/s
+}
