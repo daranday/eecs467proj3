@@ -84,6 +84,9 @@ LDFLAGS_LCM := `pkg-config --libs lcm`
 CFLAGS_GL    :=
 LDFLAGS_GL   := -lGLU -lglut
 
+#opencv
+LDFLAGS_CV := `pkg-config --libs opencv`
+
 # libusb-1.0
 CFLAGS_USB := `pkg-config --cflags libusb-1.0`
 LDFLAGS_USB := `pkg-config --libs libusb-1.0`
