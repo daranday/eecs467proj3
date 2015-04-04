@@ -3,6 +3,46 @@
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
+#include <unistd.h>
+#include <pthread.h>
+#include <string.h>
+#include <math.h>
+#include <fstream>
+#include <vector>
+#include <unordered_set>
+
+// core api
+#include "vx/vx.h"
+#include "vx/vx_util.h"
+#include "vx/vx_remote_display_source.h"
+#include "vx/gtk/vx_gtk_display_source.h"
+
+// drawables
+#include "vx/vxo_drawables.h"
+
+// common
+#include "common/getopt.h"
+#include "common/pg.h"
+#include "common/zarray.h"
+
+// imagesource
+#include "imagesource/image_u32.h"
+#include "imagesource/image_source.h"
+#include "imagesource/image_convert.h"
+
+#include "apps/eecs467_util.h"    // This is where a lot of the internals live
+
+// a2 sources
+#include "a2_blob_detector.h"
+#include "a2_inverse_kinematics.h"
+#include "a2_image_to_arm_coord.h"
+#include "a2_ai.h"
+
+//lcm
+#include "lcm/lcm-cpp.hpp"
+#include "lcmtypes/ttt_turn_t.hpp"
+
 
 using namespace cv;
 using namespace std;
@@ -15,9 +55,77 @@ RNG rng(12345);
 /// Function header
 void thresh_callback(int, void* );
 
+struct pair_hash {
+    inline std::size_t operator()(const Point & v) const {
+        return v.x+v.y*200;
+    }
+};
+
+struct state_t {
+    bool running;
+
+    getopt_t        *gopt;
+    parameter_gui_t *pg;
+
+    // image stuff
+    char *img_url;
+    int   img_height;
+    int   img_width;
+
+    // vx stuff
+    vx_application_t    vxapp;
+    vx_world_t         *vxworld;      // where vx objects are live
+    vx_event_handler_t *vxeh; // for getting mouse, key, and touch events
+    vx_mouse_event_t    last_mouse_event;
+
+    // threads
+    pthread_t animate_thread;
+
+    // for accessing the arrays
+    pthread_mutex_t mutex;
+    int argc;
+    char **argv;
+
+    bool use_cached_bbox_colors;
+    bool use_cached_calibration;
+    image_u32_t* current_image;
+
+    coord_convert converter;
+    bool converter_initialized;
+
+    int balls_placed;
+
+    double origin_x;
+    double origin_y;
+    double interval_x;
+    double interval_y;
+
+    state_t() : current_image(NULL), converter_initialized(false), balls_placed(0) {
+        use_cached_bbox_colors = (ifstream("Bbox_Colors.txt")) ? true : false;
+        use_cached_calibration = (ifstream("ConversionMatrices.txt")) ? true : false;
+        interval_x = 0.06; interval_y = 0.06;
+        origin_x = 0; origin_y = 0.15;
+    }
+} state_obj;
+
+state_t *state = &state_obj;
+
+
+void* start_inverse_kinematics(void* user) {
+    kin_main(state->argc, state->argv);
+    return NULL;
+}
 /** @function main */
 int main( int argc, char** argv )
 {
+
+    pthread_t  kinematics_thread;
+    pthread_create (&kinematics_thread, NULL, start_inverse_kinematics, (void*)NULL);
+
+
+
+
+
   /// Load source image and convert it to gray
   if (argc == 1) src = imread("sud2.jpg");
   else src = imread( argv[1] );
@@ -62,6 +170,9 @@ void thresh_callback(int, void* )
        drawContours( drawing, contours, i, color, 2, 8, hierarchy, 0, Point() );
      }
   */
+  unordered_set<Point, pair_hash> endPoints;
+  double h = 0.1025;
+  int wait_t = 100000;
   int totalPoints = 0;
   Point prev;
   Point cur; 
@@ -70,18 +181,25 @@ void thresh_callback(int, void* )
     prev.y = contours[i][0].y;
     Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
     for (int j = 0; j < contours[i].size(); j++){
-      cout << contours[i][j] << " ";
+      endPoints.insert(cur);
+      //cout << contours[i][j] << " ";
       cur.x = contours[i][j].x;
       cur.y = contours[i][j].y;      
-      //cout << "[" << cur.x - prev.x << "," << cur.y - prev.y << "]" << " ";
+      cout << "[" << cur.x - prev.x << "," << cur.y - prev.y << "]" << " ";
       line(drawing,cur,prev,color,1,8,0);
       prev = cur;
-      totalPoints++;;
+      totalPoints++;
+      //if(!endPoints.count(cur)){
+
+        move_to(-1*((double)cur.x)/1000, ((double)cur.y)/1000, h);
+        usleep(wait_t);
+      //}
     } 
     cout << endl;
     //Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
     //drawContours( drawing, contours, i, color, 2, 8, hierarchy, 0, Point() );
     cout << contours[i].size() << endl;
+     move_to(.1,.1,.03);
   }
    cout << contours.size() << " " << totalPoints << endl;
   /// Show in a window

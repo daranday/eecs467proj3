@@ -62,7 +62,7 @@ $(BIN_A2_ARM_TEST):  a2_arm_test.o $(LIBDEPS) $(LIBEECS467_OBJS)
 	@echo "\t$@"
 	@$(CXX) -o $@ $^ $(LDFLAGS) $(CXXFLAGS)
 
-$(BIN_OPENCV):  opencv.o $(LIBDEPS) $(LIBEECS467_OBJS)
+$(BIN_OPENCV):  opencv.o a2_blob_detector.o a2_inverse_kinematics.o a2_image_to_arm_coord.o a2_ai.o $(LIBDEPS) $(LIBEECS467_OBJS)
 	@echo "\t$@"
 	@$(CXX) -o $@ $^ $(LDFLAGS) $(CXXFLAGS)
 
