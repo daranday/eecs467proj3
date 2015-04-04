@@ -64,6 +64,7 @@ void move_to(double x, double y, double z, double wrist_tilt) {
         printf("z too low!\n");
         return;
     }
+    // wrist_tilt = pi / 20.;
     printf("Moving to %g, %g, %g\n", x, y, z);
     // bool moving_horizontal = false;
     // if (abs(x - kin_state->cmd_position[0]) + abs(kin_state->cmd_position[1] - y) > 0.0001) {
@@ -80,6 +81,7 @@ void move_to(double x, double y, double z, double wrist_tilt) {
     
 
     double R = sqrt(pow(x, 2) + pow(y, 2));
+    // z += 0.003 / 0.03 * (R - 0.12369);
     kin_state->cmd_angles[0] = eecs467::angle_sum(atan2(x, y), 0); // x and y reversed because angle begins from y, not x axis.
     
     // if (moving_horizontal)

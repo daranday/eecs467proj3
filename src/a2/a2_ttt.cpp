@@ -164,7 +164,7 @@ struct state_t {
         use_cached_bbox_colors = (ifstream("Bbox_Colors.txt")) ? true : false;
         use_cached_calibration = (ifstream("ConversionMatrices.txt")) ? true : false;
         interval_x = 0.06; interval_y = 0.06;
-        origin_x = 0.06; origin_y = 0.06;
+        origin_x = 0; origin_y = 0.15;
     }
 } state_obj;
 
@@ -821,6 +821,35 @@ bool manual_wait_turn() {
     return true;
 }
 
+void draw_axes() {
+    // draw x axis
+    double x0 = state->origin_x, y0 = state->origin_y;
+    double h = 0.1025;
+    int iters = 50, wait_t = 50000;
+
+    double x = x0 - state->interval_x, y = y0;
+    move_to(x, y, h + 0.02);
+
+    double dx = 0.1 / iters, dy = 0.1 / iters;
+    for (int i = 0; i < iters; ++i) {
+        x += dx;
+        move_to(x, y, h);
+        // usleep(wait_t);
+    }
+    
+    move_to(x, y, h + 0.02);
+    x = x0; y = y0 - state->interval_y / 2;
+    move_to(x, y, h + 0.02);
+
+    for (int i = 0; i < iters; ++i) {
+        y += dy;
+        move_to(x, y, h);
+        // usleep(wait_t);
+    }
+
+    move_to(x0, y0, h + 0.02);
+}
+
 int main (int argc, char *argv[])
 {
     //read bounding box and color hsv ranges
@@ -839,158 +868,70 @@ int main (int argc, char *argv[])
     state->argc = argc;
     state->argv = argv;
     pthread_t vx_thread, kinematics_thread;
-    pthread_create (&vx_thread, NULL, start_vx, (void*)NULL);
     pthread_create (&kinematics_thread, NULL, start_inverse_kinematics, (void*)NULL);
 
-    // wait till vx has started
-    while(state->current_image == NULL) {
-        usleep(100000);
-    }
 
     usleep(1000000);
 
-    // blob_detect B;
-    // cout << "\n============ GET MASK =============\n";
-    // B.get_mask(bbox);
-    // cout << "\n============ GET COLORS =============\n";
-    // B.get_colors(hsv_ranges);
-
-    // cout << " which player are you? (red or green)\n color: ";
-    // cin >> player_color;
-    // AI ai;
-    
-    // cout << "\n============ CALIBRATE COORDINATE CONVERTER =============\n";
-    // calibrate_coordinate_converter(B, bbox, hsv_ranges);
-
-    // cout << "\n============ INIT LCM =============\n";
-
-    // //LCM initialization
-    // comms C;
-    // string p_channel;
-    // pthread_mutex_lock(&md);
-    // if(player_color == "red")
-    //     C.is_red = true;
-    // else
-    //     C.is_red = false;
-    // pthread_mutex_unlock(&md);
-    // if(C.is_red){
-    //     lcm_inst.subscribe("GREEN_TURN", &comms::ttt_turn_handler, &C);
-    //     p_channel = "RED_TURN";
-    // }
-    // else{
-    //     lcm_inst.subscribe("RED_TURN", &comms::ttt_turn_handler, &C); 
-    //     p_channel = "GREEN_TURN";
-    // } 
-
-    // pthread_t ttt_comm;
-    // pthread_create(&ttt_comm, NULL, lcm_comm, NULL);
-    // ttt_turn_t msg;
-    // ttt_turn_t *msg_ptr = &msg;
-    //done with lcm initialization
-
-
     cout << "\n============ MAIN PROGRAM RUNNING =============\n";
-    // while (true) {
-    //     // msg_ptr=new ttt_turn_t;
-    //     // string board_state;
-    //     // //cout << "running" << endl;
-    //     // if(manual_wait_turn()){
-    //     //     cout << "doing things" << endl;
-    //     //     get_board_state(board_state, B, hsv_ranges);
-            
-    //     //     for (int i = 0; i < 9; ++i) {
-    //     //         cout << board_state[i];
-    //     //         if ((i-2) % 3 == 0)
-    //     //             cout << endl;
-    //     //     }
-    //     //     double ball_x, ball_y;
-    //     //     if (find_free_piece(B, ball_x, ball_y) == -1)
-    //     //         break;
 
-    //     //     ai.receiveBoard(board_state);
-    //     //     if(ai.checkEnd()) {
-    //     //         break;
-    //     //     }
-    //     //     int idx = ai.findNewMove();
-
-    //     //     make_move(ball_x, ball_y, idx % 3, idx / 3);
-            
-    //     //     //sleep long enough to finish turn
-    //     //     for(int i = 0; i < 200; i++){
-    //     //         cout << "doing things" << endl;
-    //     //         lcm_inst.publish(p_channel, msg_ptr);
-    //     //         usleep(50000);
-    //     //     }
-
-    //     //     get_board_state(board_state, B, hsv_ranges);
-    //     //     usleep(10000);
-    //     //     ai.receiveBoard(board_state);
-
-    //     //     ++C.our_turn;
-
-    //     //     if(ai.checkEnd()) {
-    //     //         break;
-    //     //     }
-    //     }
-
-        
-        
-    //     // get_board_state(board_state, B, hsv_ranges);
-    //     // pthread_mutex_lock(&md);
-    //     // cout << "our turn: " << C.our_turn << " opponent turn: " << C.current.turn << endl;
-    //     // pthread_mutex_unlock(&md);
-
-    //     // msg_ptr->turn = C.our_turn;
-    //     // usleep(50000);
-    //     // lcm_inst.publish(p_channel, msg_ptr);
-    //     // delete msg_ptr;
-    // }
     double pi = 3.1415926;
 
+    double x0 = state->origin_x, y0 = state->origin_y;
+    double x = x0, y = y0;
+    double h = 0.1025;
+    int wait_t = 100000;
+    
+    // draw_axes();
+    
     while(1) {
         double a, b, c;
         string cmd;
+        
         cout << "command > ";
         cin >> cmd;
+
+
         if (cmd == "mv") {
             cin >> a >> b >> c;
             // move_to(-(a) * state->interval_x + state->origin_x, (b) * state->interval_y + state->origin_y, c);
             move_to(a, b, c);
         } else if (cmd == "square") {
-            double x = state->origin_x - state->interval_x, y = state->origin_y;
-            double h = 0.098;
-            move_to(x, y, h);
-            usleep(3000000);
-            int iters = 10, wait_t = 500000;
+            int iters = 50;
+            x = x0; y = y0;
 
-            double dx = 0.001, dy = 0.001;
+            move_to(x, y, h + 0.02);
+
+            double dx = 0.05 / iters, dy = 0.05 / iters;
             for (int i = 0; i < iters; ++i) {
                 y += dy;
                 move_to(x, y, h);
-                // usleep(wait_t);
+                usleep(wait_t);
             }
             for (int i = 0; i < iters; ++i) {
                 x -= dx;
                 move_to(x, y, h);
-                // usleep(wait_t);
+                usleep(wait_t);
             }
             for (int i = 0; i < iters; ++i) {
                 y -= dy;
                 move_to(x, y, h);
-                // usleep(wait_t);
+                usleep(wait_t);
             }
             for (int i = 0; i < iters; ++i) {
                 x += dx;
                 move_to(x, y, h);
-                // usleep(wait_t);
+                usleep(wait_t);
             }
+            stand_arm();
+
         } else if (cmd == "circle") {
-            double R = 0.03, h = 0.098;
-            int iters = 20, wait_t = 500000;
+            double R = 0.03;
+            int iters = 20;
             cin >> iters;
             double dtheta = 2 * pi / iters, theta = 0;
-            double x0 = state->origin_x - state->interval_x, y0 = state->origin_y + state->interval_y, x, y;
 
+            move_to(x0 + R, y0, h + 0.02);
 
             for (int i = 0; i < iters; ++i) {
                 x = x0 + R * cos(theta + i * dtheta);
@@ -998,21 +939,24 @@ int main (int argc, char *argv[])
                 move_to(x, y, h);
                 // usleep(wait_t);
             }
+            stand_arm();
+
         // } else if (cmd == "")
         } else if (cmd == "sine") {
-            double R = 0.03, h = 0.098;
-            int iters = 20, wait_t = 500000;
+            double R = 0.03;
+            int iters = 20;
             cin >> iters;
             double dtheta = 4 * pi / iters, theta = 0;
-            double x0 = state->origin_x - state->interval_x, y0 = state->origin_y + state->interval_y, x, y;
 
+            move_to(x0, y0, h + 0.02);
 
             for (int i = 0; i < iters; ++i) {
-                x = x0 + 0.06 / (4 * pi) * (i * dtheta);
-                y = y0 + 0.06 * sin(i * dtheta);
+                x = x0 + 0.08 / (4 * pi) * (i * dtheta);
+                y = y0 + 0.045 * sin(i * dtheta);
                 move_to(x, y, h);
                 usleep(wait_t);
             }
+            stand_arm();
         // } else if (cmd == "")
         } else if (cmd == "quit") {
             kin_state->running = false;
