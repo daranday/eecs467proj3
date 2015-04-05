@@ -34,10 +34,10 @@
 #include "apps/eecs467_util.h"    // This is where a lot of the internals live
 
 // a2 sources
-#include "a2_blob_detector.h"
-#include "a2_inverse_kinematics.h"
-#include "a2_image_to_arm_coord.h"
-#include "a2_ai.h"
+#include "a3_blob_detector.h"
+#include "a3_inverse_kinematics.h"
+#include "a3_image_to_arm_coord.h"
+#include "a3_ai.h"
 
 //lcm
 #include "lcm/lcm-cpp.hpp"
@@ -119,12 +119,8 @@ void* start_inverse_kinematics(void* user) {
 int main( int argc, char** argv )
 {
 
-    pthread_t  kinematics_thread;
-    pthread_create (&kinematics_thread, NULL, start_inverse_kinematics, (void*)NULL);
-
-
-
-
+  pthread_t  kinematics_thread;
+  pthread_create (&kinematics_thread, NULL, start_inverse_kinematics, (void*)NULL);
 
   /// Load source image and convert it to gray
   if (argc == 1) src = imread("sud2.jpg");
@@ -170,38 +166,52 @@ void thresh_callback(int, void* )
        drawContours( drawing, contours, i, color, 2, 8, hierarchy, 0, Point() );
      }
   */
+
   unordered_set<Point, pair_hash> endPoints;
-  double h = 0.1025;
-  int wait_t = 100000;
+  double h = 0.103;
+  int wait_t = 500000;
   int totalPoints = 0;
   Point prev;
-  Point cur; 
+  Point cur;
+
+  // stand_arm();
+  //usleep(wait_t*2);
+  stand_arm();
+
   for (int i = 0; i < contours.size(); i++){
     prev.x = contours[i][0].x;
     prev.y = contours[i][0].y;
     Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
-    for (int j = 0; j < contours[i].size(); j++){
+
+    // lift arm to start point of current contour
+    double start_x = -1*((double)contours[i][0].x + 50)/1000.;
+    double start_y = ((double)contours[i][0].y )/1000.;
+    move_to(start_x, start_y, h);
+
+    for (int j = 0; j < contours[i].size() / 2; j++){
       endPoints.insert(cur);
-      //cout << contours[i][j] << " ";
+      cout << contours[i][j] << " ";
       cur.x = contours[i][j].x;
       cur.y = contours[i][j].y;      
-      cout << "[" << cur.x - prev.x << "," << cur.y - prev.y << "]" << " ";
+      // cout << "[" << cur.x - prev.x << "," << cur.y - prev.y << "]" << " ";
       line(drawing,cur,prev,color,1,8,0);
+
       prev = cur;
       totalPoints++;
-      //if(!endPoints.count(cur)){
-
-        move_to(-1*((double)cur.x)/1000, ((double)cur.y)/1000, h);
-        usleep(wait_t);
-      //}
-    } 
+  
+      cout << -1*((double)cur.x + 50)/1000. << " " << ((double)cur.y )/1000. << endl;
+      move_to(-1*((double)cur.x + 50)/1000., ((double)cur.y)/1000., h);
+      usleep(wait_t);
+    }
     cout << endl;
     //Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
     //drawContours( drawing, contours, i, color, 2, 8, hierarchy, 0, Point() );
     cout << contours[i].size() << endl;
-     move_to(.1,.1,.03);
+    stand_arm();
+    //relax_arm();
+    //usleep(wait_t);
   }
-   cout << contours.size() << " " << totalPoints << endl;
+  cout << contours.size() << " " << totalPoints << endl;
   /// Show in a window
   namedWindow( "Contours", CV_WINDOW_AUTOSIZE );
   imshow( "Contours", drawing );

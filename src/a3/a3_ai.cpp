@@ -3,7 +3,7 @@
 #include <string>
 #include <utility>
 #include <cmath>
-#include "a2_ai.h"
+#include "a3_ai.h"
 
 AI::AI() {
     board = ".........";

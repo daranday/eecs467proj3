@@ -1,5 +1,5 @@
-#ifndef __A2_BLOB_DETECTOR__
-#define __A2_BLOB_DETECTOR__
+#ifndef __A3_BLOB_DETECTOR__
+#define __A3_BLOB_DETECTOR__
 
 #include "imagesource/image_u32.h"
 #include "imagesource/image_u8x3.h"

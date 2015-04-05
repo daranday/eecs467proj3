@@ -6,7 +6,7 @@
 #include <iostream>
 #include <fstream>
 #include <string>
-#include "a2_blob_detector.h"
+#include "a3_blob_detector.h"
 using namespace std;
 
 blob_detect::blob_detect(){

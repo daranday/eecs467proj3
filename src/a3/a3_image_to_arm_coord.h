@@ -1,5 +1,5 @@
-#ifndef __A2_IMAGE_TO_ARM_COORD__
-#define __A2_IMAGE_TO_ARM_COORD__
+#ifndef __A3_IMAGE_TO_ARM_COORD__
+#define __A3_IMAGE_TO_ARM_COORD__
 
 #include <math/gsl_util_matrix.h>
 #include <math/gsl_util_linalg.h>

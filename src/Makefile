@@ -1,6 +1,6 @@
 # Only add your directories to this folder if you are 100% sure that
 # it will always compile without warnings.
-SUBDIRS = lcmtypes common mapping math imagesource vx vx/gtk apps rexarm maebot a2
+SUBDIRS = lcmtypes common mapping math imagesource vx vx/gtk apps rexarm maebot a3
 
 MAKEFLAGS += --no-print-directory
 
