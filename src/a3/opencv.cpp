@@ -173,6 +173,7 @@ void thresh_callback(int, void* )
   int totalPoints = 0;
   Point prev;
   Point cur;
+  double colorNum = 0;
 
   // stand_arm();
   //usleep(wait_t*2);
@@ -181,7 +182,7 @@ void thresh_callback(int, void* )
   for (int i = 0; i < contours.size(); i++){
     prev.x = contours[i][0].x;
     prev.y = contours[i][0].y;
-    Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
+    Scalar color = Scalar(0,0,colorNum);
 
     // lift arm to start point of current contour
     double start_x = -1*((double)contours[i][0].x + 50)/1000.;
@@ -203,6 +204,7 @@ void thresh_callback(int, void* )
       move_to(-1*((double)cur.x + 50)/1000., ((double)cur.y)/1000., h);
       usleep(wait_t);
     }
+    colorNum = colorNum + 10;
     cout << endl;
     //Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
     //drawContours( drawing, contours, i, color, 2, 8, hierarchy, 0, Point() );

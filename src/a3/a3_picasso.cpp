@@ -6,7 +6,7 @@ using namespace cv;
 
 Mat src; 
 Mat src_gray;
-int thresh = 100;
+int thresh = 60;
 int max_thresh = 255;
 RNG rng(12345);
 
@@ -413,7 +413,7 @@ void thresh_callback(int, void* )
 	Mat canny_output;
 	vector<vector<Point> > contours;
 	vector<Vec4i> hierarchy;
-	double imageSize = 150;
+	double imageSize = 100;
 	resize(src_gray,src_gray,Size(),imageSize/src_gray.cols,imageSize/src_gray.rows,INTER_AREA);
 	/// Detect edges using canny
 	Canny( src_gray, canny_output, thresh, thresh*2, 3 );
@@ -432,53 +432,103 @@ void thresh_callback(int, void* )
 	 }
 	*/
 
-	double h = 0.103;
-	int wait_t = 500000;
+	double h = 0.105;
+	int wait_t = 750000;
 	int totalPoints = 0;
 	Point prev;
 	Point cur;
-
-	// stand_arm();
-	//usleep(wait_t*2);
-	stand_arm();
-
+	Point diff;
 	vector<float> points;
+/*
+	for (int i = 0; i < contours.size(); i++){
+    prev.x = contours[i][0].x;
+    prev.y = contours[i][0].y;
+    Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
 
+    // lift arm to start point of current contour
+    double start_x = -1*((double)contours[i][0].x + 50)/1000.;
+    double start_y = ((double)contours[i][0].y )/1000.;
+
+    for (int j = 0; j < contours[i].size() / 2; j++){
+      cout << contours[i][j] << " ";
+      cur.x = contours[i][j].x;
+      cur.y = contours[i][j].y;      
+      line(drawing,cur,prev,color,1,8,0);
+
+      prev = cur;
+      totalPoints++;
+      cout << -1*((double)cur.x + 50)/1000. << " " << ((double)cur.y )/1000. << endl;
+    }
+    cout << endl;
+    //Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
+    //drawContours( drawing, contours, i, color, 2, 8, hierarchy, 0, Point() );
+    cout << contours[i].size() << endl;
+    //relax_arm();
+    //usleep(wait_t);
+  }
+  cout << contours.size() << " " << totalPoints << endl;
+  /// Show in a window
+  namedWindow( "Contours", CV_WINDOW_AUTOSIZE );
+  imshow( "Contours", drawing );
+*/
+
+  	stand_arm();
+	usleep(wait_t);
+	cout << "Ready" << endl;
 	for (int i = 0; i < contours.size(); i++){
 		prev.x = contours[i][0].x;
 		prev.y = contours[i][0].y;
 		Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
+		//Scalar color = Scalar(0,0,colorNum);
 
 		// lift arm to start point of current contour
 		double start_x = -1*((double)contours[i][0].x + 50)/1000.;
 		double start_y = ((double)contours[i][0].y )/1000.;
 		move_to(start_x, start_y, h);
+		usleep(wait_t*4);
 
 		for (int j = 0; j < contours[i].size() / 2; j++){
-			cout << contours[i][j] << " ";
+			cout << contours[i][j] << " " << endl;
 			cur.x = contours[i][j].x;
 			cur.y = contours[i][j].y;
-			// cout << "[" << cur.x - prev.x << "," << cur.y - prev.y << "]" << " ";
-			line(drawing,cur,prev,color,1,8,0);
+			diff.x = cur.x - prev.x;
+			diff.y = cur.y - prev.y; 
+			
 
+			line(drawing,cur,prev,color,1,8,0);
+			
 			vector<float> cur_points = {(float)(prev.x / 1000.), (float)(prev.y / 1000.), (float)0.001, (float)(cur.x / 1000.), (float)(cur.y / 1000.), (float)0.001};
 			points.insert(points.end(), cur_points.begin(), cur_points.end());
 			vx_resc_t *verts = vx_resc_copyf(points.data(), points.size());
 			vx_buffer_add_back(vx_world_get_buffer(state->vxworld, "drawing_vector"), 
 								vxo_lines(verts, points.size() / 3, GL_LINES, vxo_points_style(vx_red, 2.0f)));
 			vx_buffer_swap(vx_world_get_buffer(state->vxworld, "drawing_vector"));
-			prev = cur;
+			
 			totalPoints++;
+			double stepX = diff.x/10, stepY = diff.y/10;
+			if (abs(diff.x) > 3 || abs(diff.y) > 3){
+				for( double k = 1; k < 10; k++){
+					cout << " midpoint with stepY= " << stepY*k << " ";
+					move_to(-1*((double)prev.x + 50 + k*stepX)/1000., ((double)prev.y + k*stepY)/1000., h  );
+					usleep(wait_t);
+
+				}
+				//cout << -1*((double)(prev.x + cur.x)/2. + 50)/1000. << " "  <<((double) (prev.y+ cur.y)/2. + 50)/1000. << " Midpoint" << endl;
+				//move_to(-1*((double)(prev.x + cur.x)/2. + 50)/1000., ((double) (prev.y+ cur.y)/2. + 50)/1000., h  );
+				//usleep(wait_t);
+			}
 
 			cout << -1*((double)cur.x + 50)/1000. << " " << ((double)cur.y )/1000. << endl;
-			move_to(-1*((double)cur.x + 50)/1000., ((double)cur.y)/1000., h);
+			move_to(-1*((double)cur.x + 50)/1000., ((double)cur.y)/1000., h  );
 			usleep(wait_t);
+			prev = cur;
 		}
 		cout << endl;
 		//Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
 		//drawContours( drawing, contours, i, color, 2, 8, hierarchy, 0, Point() );
 		cout << contours[i].size() << endl;
 		stand_arm();
+		usleep(wait_t);
 		//relax_arm();
 		//usleep(wait_t);
 	}
@@ -486,6 +536,7 @@ void thresh_callback(int, void* )
 	/// Show in a window
 	namedWindow( "Contours", CV_WINDOW_AUTOSIZE );
 	imshow( "Contours", drawing );
+
 }
 
 
@@ -535,8 +586,6 @@ int main (int argc, char *argv[])
 	namedWindow( source_window, CV_WINDOW_AUTOSIZE );
 	imshow( source_window, src );
 
-
-	cout << "WHY THE FUCK NOT" << endl;
 	createTrackbar( " Canny thresh:", "Source", &thresh, max_thresh, thresh_callback );
 	thresh_callback( 0, 0 );
 

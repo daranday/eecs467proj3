@@ -123,9 +123,8 @@ void move_joints(vector<double> joint_angles) {
     }
     // cmds.commands[5].position_radians *= -1;
     assert(kin_state->lcm != NULL);
-    cout << "here" << endl;
     dynamixel_command_list_t_publish (kin_state->lcm, kin_state->command_channel, &cmds);
-        cout << "here" << endl;
+        /*
     while(1) {
         double error = 0;
         pthread_mutex_lock(&(kin_state->arm_lock));
@@ -140,6 +139,7 @@ void move_joints(vector<double> joint_angles) {
         usleep(10000);
     }
     cout << "move_joints(): Action completed." << endl;
+    */
 }
 
 void relax_arm() {
