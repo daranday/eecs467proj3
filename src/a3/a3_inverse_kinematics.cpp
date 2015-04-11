@@ -110,6 +110,16 @@ void move_to(double x, double y, double z, double wrist_tilt) {
     move_joints(kin_state->cmd_angles);
 }
 
+void move_to_smooth(double x, double y, double z, double wrist_tilt) {
+    double tempX = x, tempY = y,tempZ;
+    tempZ = z*2;
+    if (x > .1) tempX = x/2;
+    if (y > .1) tempY = y/2;
+    move_to(tempX,tempY,z);
+    usleep(750000);
+    move_to(x,y,z);
+}
+
 void move_joints(vector<double> joint_angles) {
     // send angles command
     dynamixel_command_list_t cmds;

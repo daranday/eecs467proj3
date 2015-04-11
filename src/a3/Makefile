@@ -25,7 +25,7 @@ BIN_A3_ARM_TEST = $(BIN_PATH)/a3_arm_test
 BIN_OPENCV = $(BIN_PATH)/opencv
 
 ALL = $(BIN_A3_MASK) $(BIN_A3_COLOR_PICKER) \
-		$(BIN_A3_PICASSO) $(BIN_A3_ARM_TEST) # $(BIN_OPENCV) $(BIN_A3_BLOB_DETECTOR) $(BIN_A3_INVERSE_KINEMATICS) $(BIN_A3_IMAGE_TO_ARM_COORD)   $(BIN_A3_AI)\
+		$(BIN_A3_PICASSO) $(BIN_A3_ARM_TEST) # $(BIN_OPENCV)# $(BIN_OPENCV) $(BIN_A3_BLOB_DETECTOR) $(BIN_A3_INVERSE_KINEMATICS) $(BIN_A3_IMAGE_TO_ARM_COORD)   $(BIN_A3_AI)\
 
 all: $(ALL)
 
@@ -62,9 +62,9 @@ $(BIN_A3_ARM_TEST): a3_arm_test.o $(LIBDEPS) $(LIBEECS467_OBJS)
 	@echo "\t$@"
 	@$(CXX) -o $@ $^ $(LDFLAGS) $(CXXFLAGS)
 
-# $(BIN_OPENCV):  opencv.o a3_blob_detector.o a3_inverse_kinematics.o a3_image_to_arm_coord.o a3_ai.o $(LIBDEPS) $(LIBEECS467_OBJS)
-# 	@echo "\t$@"
-# 	@$(CXX) -o $@ $^ $(LDFLAGS) $(CXXFLAGS)
+#$(BIN_OPENCV):  opencv.o  a3_blob_detector.o a3_inverse_kinematics.o a3_image_to_arm_coord.o a3_ai.o $(LIBDEPS) $(LIBEECS467_OBJS)
+#	@echo "\t$@"
+#	@$(CXX) -o $@ $^ $(LDFLAGS) $(CXXFLAGS)
 
 
 clean:

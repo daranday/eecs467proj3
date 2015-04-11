@@ -4,11 +4,19 @@
 using namespace std;
 using namespace cv;
 
-Mat src; 
+Mat src, erosion_dst, dilation_dst; 
 Mat src_gray;
 int thresh = 60;
 int max_thresh = 255;
 RNG rng(12345);
+int erosion_elem = 0;
+int erosion_size = 0;
+int dilation_elem = 0;
+int dilation_size = 0;
+int curContour = 0;
+int maxContour = 100; 
+int const max_elem = 2;
+int const max_kernel_size = 21;
 
 // It's good form for every application to keep its state in a struct.
 struct state_t {
@@ -111,14 +119,6 @@ void convert_image_to_vx_coords(double image_x, double image_y, double& vx_x, do
 	// cout << "----------" << vx_x << ", " << vx_y << endl;
 }
 
-void make_move(double ball_x, double ball_y, int idx_i, int idx_j) {
-	printf("Moving piece to Position (%d, %d)\n", idx_i, idx_j);
-	move_to(ball_x, ball_y, 0.13);
-	arm_fetch();
-	move_to(-(idx_i) * state->interval_x + state->origin_x, (idx_j) * state->interval_y + state->origin_y, 0.13);
-	arm_drop();
-	stand_arm();
-}
 
 static int mouse_event (vx_event_handler_t *vxeh, vx_layer_t *vl, vx_camera_pos_t *pos, vx_mouse_event_t *mouse)
 {
@@ -250,6 +250,7 @@ void * animate_thread (void *data)
 // fill in the functionality with your own code.
 
 void* start_vx(void* user) {
+	/*
 	int argc = state->argc;
 	char **argv = state->argv;
 
@@ -337,12 +338,56 @@ void* start_vx(void* user) {
 	free (my_listener);
 	vx_remote_display_source_destroy (cxn);
 	vx_global_destroy ();
-
+	*/
 	return NULL;
+	
 }
 
 void* start_inverse_kinematics(void* user) {
 	kin_main(state->argc, state->argv);
+	return NULL;
+}
+
+void* start_opencv(void * arg) {
+	double imageSize = 600;
+	Mat expanded_src;
+	// resize(src,expanded_src,Size(),imageSize/src.cols,imageSize/src.rows,INTER_AREA);
+	cvtColor( src, src_gray, CV_BGR2GRAY );
+	blur( src_gray, src_gray, Size(3,3) );
+
+	int erosion_type = 0;
+	if( erosion_elem == 0 ){ erosion_type = MORPH_RECT; }
+	else if( erosion_elem == 1 ){ erosion_type = MORPH_CROSS; }
+	else if( erosion_elem == 2) { erosion_type = MORPH_ELLIPSE; }
+
+	Mat element = getStructuringElement( erosion_type,
+	                                       Size( 2*erosion_size + 1, 2*erosion_size+1 ),
+	                                       Point( erosion_size, erosion_size ) );
+
+	/// Apply the erosion operation
+	erode( src_gray, src_gray, element );
+
+
+	/// Create Window
+	char* source_window = "Source";
+	namedWindow( source_window, CV_WINDOW_AUTOSIZE );
+	imshow( source_window, src_gray );
+
+	createTrackbar( " Canny thresh:", "Source", &thresh, max_thresh, thresh_callback );
+	createTrackbar( "Element:\n 0: Rect \n 1: Cross \n 2: Ellipse", "Source",
+                  &dilation_elem, max_elem,
+                  thresh_callback );
+
+    createTrackbar( "Kernel size:\n 2n +1", "Source",
+                  &dilation_size, max_kernel_size,
+                  thresh_callback );
+
+    createTrackbar("Contour", "Source",
+                  &curContour, maxContour,
+                  thresh_callback );
+
+	thresh_callback( 0, 0 );
+	waitKey(0);
 	return NULL;
 }
 
@@ -357,13 +402,6 @@ void get_coordinates_from_joints(double& x, double& y) {
 	y = - R * cos(kin_state->arm_joints[0]);
 }
 
-void get_camera_to_arm(double camera_x, double camera_y, double& x, double& y) {
-	double camera_vector[3] = {camera_x, camera_y, 1};
-	double arm_vector[3] = {-69, -69, -69};
-	state->converter.camera_to_arm(arm_vector, camera_vector);
-	x = arm_vector[0];
-	y = arm_vector[1];
-}
 
 
 void render_blob(string shape, double x, double y, const float* color) {
@@ -387,25 +425,47 @@ void draw_axes() {
 
 	double x = x0 - state->interval_x, y = y0;
 	move_to(x, y, h + 0.02);
+	usleep(wait_t);
 
 	double dx = 0.1 / iters, dy = 0.1 / iters;
 	for (int i = 0; i < iters; ++i) {
 		x += dx;
 		move_to(x, y, h);
+		usleep(wait_t);
 		// usleep(wait_t);
 	}
 	
 	move_to(x, y, h + 0.02);
+	usleep(wait_t);
 	x = x0; y = y0 - state->interval_y / 2;
 	move_to(x, y, h + 0.02);
+	usleep(wait_t);
 
 	for (int i = 0; i < iters; ++i) {
 		y += dy;
 		move_to(x, y, h);
+		usleep(wait_t);
 		// usleep(wait_t);
 	}
 
 	move_to(x0, y0, h + 0.02);
+	usleep(wait_t);
+}
+
+void Dilation( int, void* )
+{
+   int erosion_type;
+  if( erosion_elem == 0 ){ erosion_type = MORPH_RECT; }
+  else if( erosion_elem == 1 ){ erosion_type = MORPH_CROSS; }
+  else if( erosion_elem == 2) { erosion_type = MORPH_ELLIPSE; }
+
+  Mat element = getStructuringElement( erosion_type,
+                                       Size( 2*erosion_size + 1, 2*erosion_size+1 ),
+                                       Point( erosion_size, erosion_size ) );
+
+  /// Apply the erosion operation
+  erode( src, erosion_dst, element );
+  imshow( "Erosion Demo", erosion_dst );
 }
 
 void thresh_callback(int, void* )
@@ -415,10 +475,60 @@ void thresh_callback(int, void* )
 	vector<Vec4i> hierarchy;
 	double imageSize = 100;
 	resize(src_gray,src_gray,Size(),imageSize/src_gray.cols,imageSize/src_gray.rows,INTER_AREA);
+
+	int erosion_type;
+	if( erosion_elem == 0 ){ erosion_type = MORPH_RECT; }
+	else if( erosion_elem == 1 ){ erosion_type = MORPH_CROSS; }
+	else if( erosion_elem == 2) { erosion_type = MORPH_ELLIPSE; }
+
+	Mat element = getStructuringElement( erosion_type,
+	                                       Size( 2*erosion_size + 1, 2*erosion_size+1 ),
+	                                       Point( erosion_size, erosion_size ) );
+
+	/// Apply the erosion operation
+	erode( src_gray, erosion_dst, element );
+
+	erosion_dst = fastNlMeansDenoising(erosion_dst,erosion_dst,10,7,21);
+
+	/// Detect edges using canny
+	Canny( erosion_dst, canny_output, thresh, thresh*2, 3 );
+	/// Find contours
+	findContours( canny_output, contours, hierarchy, CV_RETR_CCOMP, CV_CHAIN_APPROX_NONE, Point(0, 0) );
+
+	maxContour = contours.size() - 1;
+	cout << "Number of Contours " << contours.size() << endl;
+
+		/// Draw contours
+	Mat drawing = Mat::zeros( canny_output.size(), CV_8UC3 );
+	//for( unsigned int i = 0; i< contours.size(); i++ ){
+	//}
+
+	if (curContour > contours.size() -1 ){
+		for( unsigned int i = 0; i< contours.size(); i++ ){
+			Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
+			drawContours( drawing, contours, i, color, 2, 8, hierarchy, 0, Point() );
+		}
+	} else {
+		Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
+		drawContours( drawing, contours, curContour, color, 2, 8, hierarchy, 0, Point() );
+	}
+
+
+	/// Show in a window
+	namedWindow( "Contours", CV_WINDOW_AUTOSIZE );
+	imshow( "Contours", drawing );
+}
+
+void draw(int, void* ){
+
+	Mat canny_output;
+	vector<vector<Point> > contours;
+	vector<Vec4i> hierarchy;
 	/// Detect edges using canny
 	Canny( src_gray, canny_output, thresh, thresh*2, 3 );
 	/// Find contours
-	findContours( canny_output, contours, hierarchy, CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE, Point(0, 0) );
+	cout << "Drawing with threshold " << thresh << endl;
+	findContours( canny_output, contours, hierarchy, CV_RETR_CCOMP, CV_CHAIN_APPROX_NONE, Point(0, 0) );
 
 	/// Draw contours
 	Mat drawing = Mat::zeros( canny_output.size(), CV_8UC3 );
@@ -432,134 +542,93 @@ void thresh_callback(int, void* )
 	 }
 	*/
 
-	double h = 0.105;
-	int wait_t = 750000;
+	double h = 0.103;
+	double wait_t = 250000;
 	int totalPoints = 0;
 	Point prev;
 	Point cur;
 	Point diff;
 	vector<float> points;
-/*
-	for (int i = 0; i < contours.size(); i++){
-    prev.x = contours[i][0].x;
-    prev.y = contours[i][0].y;
-    Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
-
-    // lift arm to start point of current contour
-    double start_x = -1*((double)contours[i][0].x + 50)/1000.;
-    double start_y = ((double)contours[i][0].y )/1000.;
-
-    for (int j = 0; j < contours[i].size() / 2; j++){
-      cout << contours[i][j] << " ";
-      cur.x = contours[i][j].x;
-      cur.y = contours[i][j].y;      
-      line(drawing,cur,prev,color,1,8,0);
-
-      prev = cur;
-      totalPoints++;
-      cout << -1*((double)cur.x + 50)/1000. << " " << ((double)cur.y )/1000. << endl;
-    }
-    cout << endl;
-    //Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
-    //drawContours( drawing, contours, i, color, 2, 8, hierarchy, 0, Point() );
-    cout << contours[i].size() << endl;
-    //relax_arm();
-    //usleep(wait_t);
-  }
-  cout << contours.size() << " " << totalPoints << endl;
-  /// Show in a window
-  namedWindow( "Contours", CV_WINDOW_AUTOSIZE );
-  imshow( "Contours", drawing );
-*/
+	double stepSize, stepX, stepY;
 
   	stand_arm();
+
 	usleep(wait_t);
 	cout << "Ready" << endl;
-	for (int i = 0; i < contours.size(); i++){
-		prev.x = contours[i][0].x;
-		prev.y = contours[i][0].y;
-		Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
-		//Scalar color = Scalar(0,0,colorNum);
+	for (unsigned int i = 0; i < contours.size(); i++){
+		if(hierarchy[i][3] >= 0){
+			prev.x = contours[i][0].x;
+			prev.y = contours[i][0].y;
+			Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
+			//Scalar color = Scalar(0,0,colorNum);
 
-		// lift arm to start point of current contour
-		double start_x = -1*((double)contours[i][0].x + 50)/1000.;
-		double start_y = ((double)contours[i][0].y )/1000.;
-		move_to(start_x, start_y, h);
-		usleep(wait_t*4);
+			// lift arm to start point of current contour
+			double start_x = ((double)contours[i][0].x - 50)/1000.;
+			double start_y = ((double)contours[i][0].y + 50)/1000.;
+			move_to(start_x, start_y, .120);
+			usleep(wait_t*8);
 
-		for (int j = 0; j < contours[i].size() / 2; j++){
-			cout << contours[i][j] << " " << endl;
-			cur.x = contours[i][j].x;
-			cur.y = contours[i][j].y;
-			diff.x = cur.x - prev.x;
-			diff.y = cur.y - prev.y; 
-			
+			move_to(start_x, start_y, h);
+			usleep(wait_t*4);
 
-			line(drawing,cur,prev,color,1,8,0);
-			
-			vector<float> cur_points = {(float)(prev.x / 1000.), (float)(prev.y / 1000.), (float)0.001, (float)(cur.x / 1000.), (float)(cur.y / 1000.), (float)0.001};
-			points.insert(points.end(), cur_points.begin(), cur_points.end());
-			vx_resc_t *verts = vx_resc_copyf(points.data(), points.size());
-			vx_buffer_add_back(vx_world_get_buffer(state->vxworld, "drawing_vector"), 
-								vxo_lines(verts, points.size() / 3, GL_LINES, vxo_points_style(vx_red, 2.0f)));
-			vx_buffer_swap(vx_world_get_buffer(state->vxworld, "drawing_vector"));
-			
-			totalPoints++;
-			double stepX = diff.x/10, stepY = diff.y/10;
-			if (abs(diff.x) > 3 || abs(diff.y) > 3){
-				for( double k = 1; k < 10; k++){
+			for (unsigned int j = 0; j < contours[i].size(); j++){
+				cout << contours[i][j] << " " << endl;
+				cur.x = contours[i][j].x;
+				cur.y = contours[i][j].y;
+				diff.x = cur.x - prev.x;
+				diff.y = cur.y - prev.y; 
+				
+
+				line(drawing,cur,prev,color,1,8,0);
+				
+				vector<float> cur_points = {(float)(prev.x / 1000.), (float)(prev.y / 1000.), (float)0.001, (float)(cur.x / 1000.), (float)(cur.y / 1000.), (float)0.001};
+				points.insert(points.end(), cur_points.begin(), cur_points.end());
+				vx_resc_t *verts = vx_resc_copyf(points.data(), points.size());
+				vx_buffer_add_back(vx_world_get_buffer(state->vxworld, "drawing_vector"), 
+									vxo_lines(verts, points.size() / 3, GL_LINES, vxo_points_style(vx_red, 2.0f)));
+				vx_buffer_swap(vx_world_get_buffer(state->vxworld, "drawing_vector"));
+				
+				totalPoints++;
+
+				if (abs(diff.x) > abs(diff.y))stepSize = abs(diff.x);
+				else stepSize = abs(diff.y);
+
+				stepX = ((double)diff.x)/stepSize;
+				stepY = ((double)diff.y)/stepSize;
+				for( double k = 1; k < stepSize; k++){
 					cout << " midpoint with stepY= " << stepY*k << " ";
-					move_to(-1*((double)prev.x + 50 + k*stepX)/1000., ((double)prev.y + k*stepY)/1000., h  );
+					move_to(((double)prev.x - 50 + k*stepX)/1000., ((double)prev.y  + 50 + k*stepY)/1000., h  );
 					usleep(wait_t);
-
 				}
-				//cout << -1*((double)(prev.x + cur.x)/2. + 50)/1000. << " "  <<((double) (prev.y+ cur.y)/2. + 50)/1000. << " Midpoint" << endl;
-				//move_to(-1*((double)(prev.x + cur.x)/2. + 50)/1000., ((double) (prev.y+ cur.y)/2. + 50)/1000., h  );
-				//usleep(wait_t);
-			}
 
-			cout << -1*((double)cur.x + 50)/1000. << " " << ((double)cur.y )/1000. << endl;
-			move_to(-1*((double)cur.x + 50)/1000., ((double)cur.y)/1000., h  );
+				cout << ((double)cur.x-50)/1000. << " " << ((double)cur.y + 50)/1000. << endl;
+				move_to(((double)cur.x-50)/1000., ((double)cur.y + 50)/1000., h  );
+				usleep(wait_t);
+				prev = cur;
+			}
+			cout << endl;
+			cout << contours[i].size() << endl;
+			move_to(((double)cur.x-50)/1000., ((double)cur.y + 50)/1000., .12  );
 			usleep(wait_t);
-			prev = cur;
 		}
-		cout << endl;
-		//Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
-		//drawContours( drawing, contours, i, color, 2, 8, hierarchy, 0, Point() );
-		cout << contours[i].size() << endl;
-		stand_arm();
-		usleep(wait_t);
-		//relax_arm();
-		//usleep(wait_t);
 	}
 	cout << contours.size() << " " << totalPoints << endl;
-	/// Show in a window
-	namedWindow( "Contours", CV_WINDOW_AUTOSIZE );
-	imshow( "Contours", drawing );
-
 }
-
 
 int main (int argc, char *argv[])
 {
-	//read bounding box and color hsv ranges
-	//hsv_ranges example: [*blue squares color: [h_min, h_max, s_min, s_max, v_min, v_max], 
-	//                      *our color [...], 
-	//                      *opponent color [...]]
-	vector<int> bbox(4);
-	vector<vector<double> > hsv_ranges(3, vector<double>(6));
-	string player_type;
-	string player_color;
-	
 	cout << "\n============ PROGRAM BEGIN =============\n";
 
 	//start vx
 	state->argc = argc;
 	state->argv = argv;
-	pthread_t vx_thread, kinematics_thread;
+	pthread_t vx_thread, kinematics_thread, opencv_thread;
 	pthread_create (&kinematics_thread, NULL, start_inverse_kinematics, (void*)NULL);
 	pthread_create (&vx_thread, NULL, start_vx, (void*)NULL);
 
+	if (argc == 1) src = imread("sud2.jpg");
+	else src = imread( argv[1] ); 
+	pthread_create (&opencv_thread, NULL, start_opencv, (void*) NULL);
 	usleep(1000000);
 
 	cout << "\n============ MAIN PROGRAM RUNNING =============\n";
@@ -571,105 +640,92 @@ int main (int argc, char *argv[])
 	double h = 0.1025;
 	int wait_t = 100000;
 	
-	// draw_axes();
-	
-	  /// Load source image and convert it to gray
-	if (argc == 1) src = imread("sud2.jpg");
-	else src = imread( argv[1] );
-	//resize(src,src,Size(),600./src.cols,600./src.rows,INTER_AREA);
-	/// Convert image to gray and blur it
-	cvtColor( src, src_gray, CV_BGR2GRAY );
-	blur( src_gray, src_gray, Size(3,3) );
+	int my_init = 0;
 
-	/// Create Window
-	char* source_window = "Source";
-	namedWindow( source_window, CV_WINDOW_AUTOSIZE );
-	imshow( source_window, src );
-
-	createTrackbar( " Canny thresh:", "Source", &thresh, max_thresh, thresh_callback );
-	thresh_callback( 0, 0 );
-
-	waitKey(0);
-
-	// while(1) {
-	//     double a, b, c;
-	//     string cmd;
+	while(1) {
+	    double a, b, c;
+	    string cmd;
 		
-	//     cout << "command > ";
-	//     cin >> cmd;
+	    cout << "command > ";
+
+	    if (my_init) {
+	    	cmd = "draw";
+	    	my_init = 0;
+	    } else {
+	    	cin >> cmd;
+	    	
+	    }
 
 
-	//     if (cmd == "mv") {
-	//         cin >> a >> b >> c;
-	//         // move_to(-(a) * state->interval_x + state->origin_x, (b) * state->interval_y + state->origin_y, c);
-	//         move_to(a, b, c);
-	//     } else if (cmd == "square") {
-	//         int iters = 50;
-	//         x = x0; y = y0;
+	    if (cmd == "draw") {
+	        draw(0,0);
+	    } else if (cmd == "square") {
+	        int iters = 50;
+	        x = x0; y = y0;
 
-	//         move_to(x, y, h + 0.02);
+	        move_to(x, y, h + 0.02);
 
-	//         double dx = 0.05 / iters, dy = 0.05 / iters;
-	//         for (int i = 0; i < iters; ++i) {
-	//             y += dy;
-	//             move_to(x, y, h);
-	//             usleep(wait_t);
-	//         }
-	//         for (int i = 0; i < iters; ++i) {
-	//             x -= dx;
-	//             move_to(x, y, h);
-	//             usleep(wait_t);
-	//         }
-	//         for (int i = 0; i < iters; ++i) {
-	//             y -= dy;
-	//             move_to(x, y, h);
-	//             usleep(wait_t);
-	//         }
-	//         for (int i = 0; i < iters; ++i) {
-	//             x += dx;
-	//             move_to(x, y, h);
-	//             usleep(wait_t);
-	//         }
-	//         stand_arm();
+	        double dx = 0.05 / iters, dy = 0.05 / iters;
+	        for (int i = 0; i < iters; ++i) {
+	            y += dy;
+	            move_to(x, y, h);
+	            usleep(wait_t);
+	        }
+	        for (int i = 0; i < iters; ++i) {
+	            x -= dx;
+	            move_to(x, y, h);
+	            usleep(wait_t);
+	        }
+	        for (int i = 0; i < iters; ++i) {
+	            y -= dy;
+	            move_to(x, y, h);
+	            usleep(wait_t);
+	        }
+	        for (int i = 0; i < iters; ++i) {
+	            x += dx;
+	            move_to(x, y, h);
+	            usleep(wait_t);
+	        }
+	        stand_arm();
 
-	//     } else if (cmd == "circle") {
-	//         double R = 0.03;
-	//         int iters = 180;
-	//         cin >> iters;
-	//         double dtheta = 2 * pi / iters, theta = 0;
+	    } else if (cmd == "circle") {
+	        double R = 0.03;
+	        int iters = 180;
+	        cin >> iters;
+	        double dtheta = 2 * pi / iters, theta = 0;
 
-	//         move_to(x0 + R, y0, h + 0.02);
+	        move_to(x0 + R, y0, h + 0.02);
 
-	//         for (int i = 0; i < iters; ++i) {
-	//             x = x0 + R * cos(theta + i * dtheta);
-	//             y = y0 + R * sin(theta + i * dtheta);
-	//             move_to(x, y, h);
-	//             // usleep(wait_t);
-	//         }
-	//         stand_arm();
+	        for (int i = 0; i < iters; ++i) {
+	            x = x0 + R * cos(theta + i * dtheta);
+	            y = y0 + R * sin(theta + i * dtheta);
+	            move_to(x, y, h);
+	            // usleep(wait_t);
+	        }
+	        stand_arm();
 
-	//     // } else if (cmd == "")
-	//     } else if (cmd == "sine") {
-	//         double R = 0.03;
-	//         int iters = 20;
-	//         cin >> iters;
-	//         double dtheta = 4 * pi / iters, theta = 0;
+	    // } else if (cmd == "")
+	    } else if (cmd == "sine") {
+	        double R = 0.03;
+	        int iters = 20;
+	        cin >> iters;
+	        double dtheta = 4 * pi / iters, theta = 0;
 
-	//         move_to(x0, y0, h + 0.02);
+	        move_to(x0, y0, h + 0.02);
 
-	//         for (int i = 0; i < iters; ++i) {
-	//             x = x0 + 0.08 / (4 * pi) * (i * dtheta);
-	//             y = y0 + 0.045 * sin(i * dtheta);
-	//             move_to(x, y, h);
-	//             usleep(wait_t);
-	//         }
-	//         stand_arm();
-	//     // } else if (cmd == "")
-	//     } else if (cmd == "quit") {
-	//         kin_state->running = false;
-	//         break;
-	//     }
-	// }
+	        for (int i = 0; i < iters; ++i) {
+	            x = x0 + 0.08 / (4 * pi) * (i * dtheta);
+	            y = y0 + 0.045 * sin(i * dtheta);
+	            move_to(x, y, h);
+	            usleep(wait_t);
+	        }
+	        stand_arm();
+	    // } else if (cmd == "")
+	    } else if (cmd == "quit") {
+	        kin_state->running = false;
+	        break;
+	    }
+	}
 
 	pthread_join (vx_thread, NULL);
 	return 0;
