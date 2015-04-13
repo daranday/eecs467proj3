@@ -37,6 +37,7 @@ extern kin_state_t *kin_state;
 
 void move_joints(std::vector<double> joint_angles);
 void move_to(double x, double y, double z, double wrist_tilt = 0);
+void move_to_helper(double x, double y, double z, double wrist_tilt = 0);
 void move_to_smooth(double x, double y, double z, double wrist_tilt = 0);
 int kin_main (int argc, char *argv[]);
 void relax_arm();

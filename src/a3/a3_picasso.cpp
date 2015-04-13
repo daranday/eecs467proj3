@@ -13,7 +13,7 @@ int erosion_elem = 0;
 int erosion_size = 0;
 int dilation_elem = 0;
 int canny = 0;
-int curContour = 0;
+int curContour = 99;
 int maxContour = 100; 
 int const max_elem = 2;
 int const max_kernel_size =1;
@@ -351,9 +351,13 @@ void* start_opencv(void * arg) {
 	double imageSize = 600;
 	Mat expanded_src;
 	cvtColor( src, src_gray, CV_BGR2GRAY );
+	//Canny( src_gray, src_gray, thresh, thresh*2, 3 );
+	blur( src_gray, src_gray, Size(3,3) );
 	blur( src_gray, src_gray, Size(3,3) );
 
-	/*
+
+
+	
 	int erosion_type = 0;
 	if( erosion_elem == 0 ){ erosion_type = MORPH_RECT; }
 	else if( erosion_elem == 1 ){ erosion_type = MORPH_CROSS; }
@@ -365,7 +369,7 @@ void* start_opencv(void * arg) {
 
 	/// Apply the erosion operation
 	erode( src_gray, src_gray, element );
-	*/
+	
 
 	/// Create Window
 	char* source_window = "Source";
@@ -523,8 +527,9 @@ void draw(int, void* ){
 	if (contours.size() != 0) cout << contours[0].size() << endl;
 
 
-	double h = 0.1125; //.1125
-	double wait_t = 300000;
+	double h = 0.1145; //.1125
+	double dropH = .13;
+	double wait_t = 150000;//150000
 	int totalPoints = 0;
 	Point prev;
 	Point cur;
@@ -545,12 +550,12 @@ void draw(int, void* ){
 
 			// lift arm to start point of current contour
 			double start_x = ((double)contours[i][0].x - 50)/1000.;
-			double start_y = ((double)contours[i][0].y + 50)/1000.;
-			move_to(start_x, start_y, .120);
-			usleep(wait_t*8);
+			double start_y = ((double)contours[i][0].y + 60)/1000.;
+			move_to(start_x, start_y, dropH);
+			usleep(wait_t*4);
 
 			move_to(start_x, start_y, h);
-			usleep(wait_t*4);
+			usleep(wait_t);
 
 			for (unsigned int j = 0; j < contours[i].size(); j++){
 
@@ -559,7 +564,6 @@ void draw(int, void* ){
 				cur.y = contours[i][j].y;
 				diff.x = cur.x - prev.x;
 				diff.y = cur.y - prev.y; 
-				cout << "Hey" << endl;
 				vector<float> cur_points = {(float)(prev.x / 1000.), (float)(prev.y / 1000.), (float)0.001, (float)(cur.x / 1000.), (float)(cur.y / 1000.), (float)0.001};
 				points.insert(points.end(), cur_points.begin(), cur_points.end());
 				vx_resc_t *verts = vx_resc_copyf(points.data(), points.size());
@@ -580,14 +584,14 @@ void draw(int, void* ){
 					usleep(wait_t);
 				}
 
-				cout << ((double)cur.x-50)/1000. << " " << ((double)cur.y + 50)/1000. << endl;
-				move_to(((double)cur.x-50)/1000., ((double)cur.y + 50)/1000., h  );
+				cout << ((double)cur.x-50)/1000. << " " << ((double)cur.y + 60)/1000. << endl;
+				move_to(((double)cur.x-50)/1000., ((double)cur.y + 60)/1000., h  );
 				usleep(wait_t);
 				prev = cur;
 			}
 			cout << endl;
 			cout << contours[i].size() << endl;
-			move_to(((double)cur.x-50)/1000., ((double)cur.y + 50)/1000., .12  );
+			move_to(((double)cur.x-50)/1000., ((double)cur.y + 50)/1000., dropH  );
 			usleep(wait_t);
 		//}
 	}
