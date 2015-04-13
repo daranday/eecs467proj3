@@ -4,7 +4,7 @@
 using namespace std;
 using namespace cv;
 
-Mat src, erosion_dst, dilation_dst; 
+Mat src, erosion_dst, dilation_dst, dst; 
 Mat src_gray;
 int thresh = 60;
 int max_thresh = 255;
@@ -12,12 +12,11 @@ RNG rng(12345);
 int erosion_elem = 0;
 int erosion_size = 0;
 int dilation_elem = 0;
-int dilation_size = 0;
+int canny = 0;
 int curContour = 0;
 int maxContour = 100; 
 int const max_elem = 2;
-int const max_kernel_size = 21;
-
+int const max_kernel_size =1;
 // It's good form for every application to keep its state in a struct.
 struct state_t {
 	bool running;
@@ -351,10 +350,10 @@ void* start_inverse_kinematics(void* user) {
 void* start_opencv(void * arg) {
 	double imageSize = 600;
 	Mat expanded_src;
-	// resize(src,expanded_src,Size(),imageSize/src.cols,imageSize/src.rows,INTER_AREA);
 	cvtColor( src, src_gray, CV_BGR2GRAY );
 	blur( src_gray, src_gray, Size(3,3) );
 
+	/*
 	int erosion_type = 0;
 	if( erosion_elem == 0 ){ erosion_type = MORPH_RECT; }
 	else if( erosion_elem == 1 ){ erosion_type = MORPH_CROSS; }
@@ -366,20 +365,22 @@ void* start_opencv(void * arg) {
 
 	/// Apply the erosion operation
 	erode( src_gray, src_gray, element );
-
+	*/
 
 	/// Create Window
 	char* source_window = "Source";
-	namedWindow( source_window, CV_WINDOW_AUTOSIZE );
+	namedWindow( source_window, CV_WINDOW_NORMAL );
 	imshow( source_window, src_gray );
 
-	createTrackbar( " Canny thresh:", "Source", &thresh, max_thresh, thresh_callback );
+
+	createTrackbar( " Thresh:", "Source", &thresh, max_thresh, thresh_callback );
+	/*
 	createTrackbar( "Element:\n 0: Rect \n 1: Cross \n 2: Ellipse", "Source",
                   &dilation_elem, max_elem,
                   thresh_callback );
-
-    createTrackbar( "Kernel size:\n 2n +1", "Source",
-                  &dilation_size, max_kernel_size,
+	*/
+    createTrackbar( "Canny On:\n", "Source",
+                  &canny, max_kernel_size,
                   thresh_callback );
 
     createTrackbar("Contour", "Source",
@@ -452,21 +453,6 @@ void draw_axes() {
 	usleep(wait_t);
 }
 
-void Dilation( int, void* )
-{
-   int erosion_type;
-  if( erosion_elem == 0 ){ erosion_type = MORPH_RECT; }
-  else if( erosion_elem == 1 ){ erosion_type = MORPH_CROSS; }
-  else if( erosion_elem == 2) { erosion_type = MORPH_ELLIPSE; }
-
-  Mat element = getStructuringElement( erosion_type,
-                                       Size( 2*erosion_size + 1, 2*erosion_size+1 ),
-                                       Point( erosion_size, erosion_size ) );
-
-  /// Apply the erosion operation
-  erode( src, erosion_dst, element );
-  imshow( "Erosion Demo", erosion_dst );
-}
 
 void thresh_callback(int, void* )
 {
@@ -476,32 +462,23 @@ void thresh_callback(int, void* )
 	double imageSize = 100;
 	resize(src_gray,src_gray,Size(),imageSize/src_gray.cols,imageSize/src_gray.rows,INTER_AREA);
 
-	int erosion_type;
-	if( erosion_elem == 0 ){ erosion_type = MORPH_RECT; }
-	else if( erosion_elem == 1 ){ erosion_type = MORPH_CROSS; }
-	else if( erosion_elem == 2) { erosion_type = MORPH_ELLIPSE; }
+	if (canny == 1){
+		cout << "Using Canny" << endl;
+		Canny( src_gray, dst, thresh, thresh*2, 3 );
+	}
+	else{
+		cout << "Using Threshold" << endl;	
+		threshold( src_gray, dst, thresh, thresh*2,3);
+	}
 
-	Mat element = getStructuringElement( erosion_type,
-	                                       Size( 2*erosion_size + 1, 2*erosion_size+1 ),
-	                                       Point( erosion_size, erosion_size ) );
-
-	/// Apply the erosion operation
-	erode( src_gray, erosion_dst, element );
-
-	erosion_dst = fastNlMeansDenoising(erosion_dst,erosion_dst,10,7,21);
-
-	/// Detect edges using canny
-	Canny( erosion_dst, canny_output, thresh, thresh*2, 3 );
 	/// Find contours
-	findContours( canny_output, contours, hierarchy, CV_RETR_CCOMP, CV_CHAIN_APPROX_NONE, Point(0, 0) );
+	findContours( dst, contours, hierarchy, CV_RETR_CCOMP, CV_CHAIN_APPROX_NONE, Point(0, 0) );
 
 	maxContour = contours.size() - 1;
 	cout << "Number of Contours " << contours.size() << endl;
 
 		/// Draw contours
-	Mat drawing = Mat::zeros( canny_output.size(), CV_8UC3 );
-	//for( unsigned int i = 0; i< contours.size(); i++ ){
-	//}
+	Mat drawing = Mat::zeros( dst.size(), CV_8UC3 );
 
 	if (curContour > contours.size() -1 ){
 		for( unsigned int i = 0; i< contours.size(); i++ ){
@@ -515,7 +492,7 @@ void thresh_callback(int, void* )
 
 
 	/// Show in a window
-	namedWindow( "Contours", CV_WINDOW_AUTOSIZE );
+	namedWindow( "Contours", CV_WINDOW_NORMAL );
 	imshow( "Contours", drawing );
 }
 
@@ -525,25 +502,29 @@ void draw(int, void* ){
 	vector<vector<Point> > contours;
 	vector<Vec4i> hierarchy;
 	/// Detect edges using canny
-	Canny( src_gray, canny_output, thresh, thresh*2, 3 );
+	//Canny( src_gray, canny_output, thresh, thresh*2, 3 );
 	/// Find contours
 	cout << "Drawing with threshold " << thresh << endl;
-	findContours( canny_output, contours, hierarchy, CV_RETR_CCOMP, CV_CHAIN_APPROX_NONE, Point(0, 0) );
+
+	if (canny == 1){
+		cout << "Using Canny" << endl;
+		Canny( src_gray, dst, thresh, thresh*2, 3 );
+	}
+	else{
+		cout << "Using Threshold" << endl;	
+		threshold( src_gray, dst, thresh, thresh*2,3);
+	}
+
+	findContours( dst, contours, hierarchy, CV_RETR_CCOMP, CV_CHAIN_APPROX_NONE, Point(0, 0) );
 
 	/// Draw contours
 	Mat drawing = Mat::zeros( canny_output.size(), CV_8UC3 );
 	cout << contours.size() << " ";
 	if (contours.size() != 0) cout << contours[0].size() << endl;
-	/*
-	for( int i = 0; i< contours.size(); i++ )
-	{
-	Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
-	drawContours( drawing, contours, i, color, 2, 8, hierarchy, 0, Point() );
-	 }
-	*/
 
-	double h = 0.103;
-	double wait_t = 250000;
+
+	double h = 0.1125; //.1125
+	double wait_t = 300000;
 	int totalPoints = 0;
 	Point prev;
 	Point cur;
@@ -556,11 +537,11 @@ void draw(int, void* ){
 	usleep(wait_t);
 	cout << "Ready" << endl;
 	for (unsigned int i = 0; i < contours.size(); i++){
-		if(hierarchy[i][3] >= 0){
+		//if(hierarchy[i][3] >= 0){
 			prev.x = contours[i][0].x;
 			prev.y = contours[i][0].y;
+			contours[i].push_back(prev);
 			Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
-			//Scalar color = Scalar(0,0,colorNum);
 
 			// lift arm to start point of current contour
 			double start_x = ((double)contours[i][0].x - 50)/1000.;
@@ -572,15 +553,13 @@ void draw(int, void* ){
 			usleep(wait_t*4);
 
 			for (unsigned int j = 0; j < contours[i].size(); j++){
+
 				cout << contours[i][j] << " " << endl;
 				cur.x = contours[i][j].x;
 				cur.y = contours[i][j].y;
 				diff.x = cur.x - prev.x;
 				diff.y = cur.y - prev.y; 
-				
-
-				line(drawing,cur,prev,color,1,8,0);
-				
+				cout << "Hey" << endl;
 				vector<float> cur_points = {(float)(prev.x / 1000.), (float)(prev.y / 1000.), (float)0.001, (float)(cur.x / 1000.), (float)(cur.y / 1000.), (float)0.001};
 				points.insert(points.end(), cur_points.begin(), cur_points.end());
 				vx_resc_t *verts = vx_resc_copyf(points.data(), points.size());
@@ -610,7 +589,7 @@ void draw(int, void* ){
 			cout << contours[i].size() << endl;
 			move_to(((double)cur.x-50)/1000., ((double)cur.y + 50)/1000., .12  );
 			usleep(wait_t);
-		}
+		//}
 	}
 	cout << contours.size() << " " << totalPoints << endl;
 }

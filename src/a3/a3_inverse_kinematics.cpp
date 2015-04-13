@@ -128,7 +128,7 @@ void move_joints(vector<double> joint_angles) {
     for (int id = 0; id < NUM_SERVOS; id++) {
         cmds.commands[id].utime = utime_now ();
         cmds.commands[id].position_radians = -joint_angles[id];
-        cmds.commands[id].speed = 0.05;
+        cmds.commands[id].speed = 0.08;
         cmds.commands[id].max_torque = 0.75;
     }
     // cmds.commands[5].position_radians *= -1;

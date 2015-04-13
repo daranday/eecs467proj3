@@ -25,7 +25,7 @@
 // opencv
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
-#include "opencv2/photo.hpp"
+
 
 // common
 #include "common/getopt.h"
@@ -65,7 +65,6 @@ void render_blob(string shape, double x, double y, const float* color);
 void draw_axes();
 void thresh_callback(int, void*);
 void draw(int threshold);
-void Dilation( int, void* );
 
 
 #endif
