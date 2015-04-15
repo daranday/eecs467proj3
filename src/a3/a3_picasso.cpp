@@ -351,7 +351,7 @@ void* start_opencv(void * arg) {
 	double imageSize = 600;
 	Mat expanded_src;
 	cvtColor( src, src_gray, CV_BGR2GRAY );
-	//Canny( src_gray, src_gray, thresh, thresh*2, 3 );
+	Canny( src_gray, src_gray, thresh, thresh*2, 3 );
 	blur( src_gray, src_gray, Size(3,3) );
 	blur( src_gray, src_gray, Size(3,3) );
 
@@ -527,9 +527,11 @@ void draw(int, void* ){
 	if (contours.size() != 0) cout << contours[0].size() << endl;
 
 
-	double h = 0.1145; //.1125
-	double dropH = .13;
+	double h = 0.132; //.1125
+	double dropH = .145;
 	double wait_t = 150000;//150000
+	double x_dist = - 50;
+	double y_dist = 62;
 	int totalPoints = 0;
 	Point prev;
 	Point cur;
@@ -549,8 +551,8 @@ void draw(int, void* ){
 			Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
 
 			// lift arm to start point of current contour
-			double start_x = ((double)contours[i][0].x - 50)/1000.;
-			double start_y = ((double)contours[i][0].y + 60)/1000.;
+			double start_x = ((double)contours[i][0].x + x_dist)/1000.;
+			double start_y = ((double)contours[i][0].y + y_dist)/1000.;
 			move_to(start_x, start_y, dropH);
 			usleep(wait_t*4);
 
@@ -580,21 +582,23 @@ void draw(int, void* ){
 				stepY = ((double)diff.y)/stepSize;
 				for( double k = 1; k < stepSize; k++){
 					cout << " midpoint with stepY= " << stepY*k << " ";
-					move_to(((double)prev.x - 50 + k*stepX)/1000., ((double)prev.y  + 50 + k*stepY)/1000., h  );
+					move_to(((double)prev.x +x_dist + k*stepX)/1000., ((double)prev.y  +y_dist + k*stepY)/1000., h  );
 					usleep(wait_t);
 				}
 
-				cout << ((double)cur.x-50)/1000. << " " << ((double)cur.y + 60)/1000. << endl;
-				move_to(((double)cur.x-50)/1000., ((double)cur.y + 60)/1000., h  );
+				cout << ((double)cur.x+x_dist)/1000. << " " << ((double)cur.y + y_dist)/1000. << endl;
+				move_to(((double)cur.x+x_dist)/1000., ((double)cur.y + y_dist)/1000., h  );
 				usleep(wait_t);
 				prev = cur;
 			}
 			cout << endl;
 			cout << contours[i].size() << endl;
-			move_to(((double)cur.x-50)/1000., ((double)cur.y + 50)/1000., dropH  );
+			move_to(((double)cur.x + x_dist)/1000., ((double)cur.y + y_dist)/1000., dropH  );
 			usleep(wait_t);
 		//}
 	}
+	  	stand_arm();
+	  	usleep(wait_t);
 	cout << contours.size() << " " << totalPoints << endl;
 }
 
@@ -611,6 +615,7 @@ int main (int argc, char *argv[])
 
 	if (argc == 1) src = imread("sud2.jpg");
 	else src = imread( argv[1] ); 
+	flip(src, src, 1);
 	pthread_create (&opencv_thread, NULL, start_opencv, (void*) NULL);
 	usleep(1000000);
 
@@ -704,7 +709,11 @@ int main (int argc, char *argv[])
 	        }
 	        stand_arm();
 	    // } else if (cmd == "")
-	    } else if (cmd == "quit") {
+	    } else if (cmd == "stand") {
+	        stand_arm();
+	        usleep(wait_t);
+	    }
+	    else if (cmd == "quit") {
 	        kin_state->running = false;
 	        break;
 	    }
