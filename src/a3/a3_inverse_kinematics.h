@@ -10,7 +10,7 @@
 #include "lcmtypes/dynamixel_status_list_t.h"
 #include "lcmtypes/dynamixel_status_t.h"
 
-struct kin_state_t
+struct InverseKinematics
 {
     getopt_t *gopt;
 
@@ -18,30 +18,27 @@ struct kin_state_t
     lcm_t *lcm;
     const char *command_channel;
     const char *status_channel;
-
     pthread_t status_thread;
     pthread_t command_thread;
-
     int stages;
     std::vector<double> cmd_angles;
     std::vector<double> cmd_position;
-
-    std::vector<double> arm_joints;
-    pthread_mutex_t arm_lock;
+    std::vector<double> real_angles;
+    pthread_mutex_t lock;
     bool running;
-    kin_state_t() : stages(0), cmd_angles(6), cmd_position(3), arm_joints(6), running(true) {}
+
+    InverseKinematics() : stages(0), cmd_angles(6), cmd_position(3), real_angles(6), running(true) {}
+    int start (int argc, char *argv[]);
+
+    void move_joints(std::vector<double> joint_angles);
+    void move_to(double x, double y, double z, double wrist_tilt = 0);
+    void transition_to(double x, double y, double z);
+    void relax();
+    void fetch();
+    void drop();
+    void stand();
 };
 
-extern kin_state_t kin_state_obj;
-extern kin_state_t *kin_state;
-
-void move_joints(std::vector<double> joint_angles);
-void move_to(double x, double y, double z, double wrist_tilt = 0);
-void move_to_smooth(double x, double y, double z, double wrist_tilt = 0);
-int kin_main (int argc, char *argv[]);
-void relax_arm();
-void arm_fetch();
-void arm_drop();
-void stand_arm();
+extern InverseKinematics Arm;
 
 #endif

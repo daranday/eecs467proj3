@@ -66,5 +66,74 @@ void draw_axes();
 void thresh_callback(int, void*);
 void draw(int threshold);
 
+struct state_t {
+	bool running;
+
+	getopt_t        *gopt;
+	parameter_gui_t *pg;
+
+	// image stuff
+	char *img_url;
+	int   img_height;
+	int   img_width;
+
+	// vx stuff
+	vx_application_t    vxapp;
+	vx_world_t         *vxworld;      // where vx objects are live
+	vx_event_handler_t *vxeh; // for getting mouse, key, and touch events
+	vx_mouse_event_t    last_mouse_event;
+
+	// threads
+	pthread_t animate_thread;
+
+	// for accessing the arrays
+	pthread_mutex_t mutex;
+	int argc;
+	char **argv;
+
+	bool use_cached_bbox_colors;
+	bool use_cached_calibration;
+	image_u32_t* current_image;
+
+	coord_convert converter;
+	bool converter_initialized;
+
+	double origin_x;
+	double origin_y;
+	double interval_x;
+	double interval_y;
+
+	bool opencv_initialized;
+
+	state_t() : current_image(NULL), converter_initialized(false), opencv_initialized(false) {
+		use_cached_bbox_colors = (ifstream("Bbox_Colors.txt")) ? true : false;
+		use_cached_calibration = (ifstream("ConversionMatrices.txt")) ? true : false;
+		interval_x = 0.06; interval_y = 0.06;
+		origin_x = 0; origin_y = 0.15;
+		vxworld = vx_world_create ();
+		vxeh = (vx_event_handler_t*)calloc (1, sizeof(*vxeh));
+		vxeh->key_event = key_event;
+		vxeh->mouse_event = mouse_event;
+		vxeh->touch_event = touch_event;
+		vxeh->dispatch_order = 100;
+		vxapp.display_started = eecs467_default_display_started;
+		vxapp.display_finished = eecs467_default_display_finished;
+		vxapp.impl = eecs467_default_implementation_create (vxworld, vxeh);
+
+		running = 1;
+	}
+
+	~state_t() {
+		if (vxeh)
+			free (vxeh);
+
+		if (gopt)
+			getopt_destroy (gopt);
+
+		if (pg)
+			pg_destroy (pg);
+		}
+};
+
 
 #endif
