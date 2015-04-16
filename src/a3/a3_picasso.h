@@ -135,5 +135,18 @@ struct state_t {
 		}
 };
 
+struct DrawBot {
+
+	double drawH = 0.1145;
+	double hoverH = 0.13;
+
+
+
+	void axes();
+	void draw();
+	void basic_shape(std::string& shape);
+};
+
+extern DrawBot Picasso;
 
 #endif
