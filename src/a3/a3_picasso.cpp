@@ -24,6 +24,7 @@ int const max_elem = 2;
 int const max_kernel_size =1;
 
 
+
 // Application State
 state_t state_obj;
 state_t *state = &state_obj;
@@ -241,14 +242,12 @@ void* start_opencv(void * arg) {
                   &canny, max_kernel_size,
                   thresh_callback );
 
-    createTrackbar("Contour", "Source",
+    createTrackbar( "Contour", "Source",
                   &curContour, maxContour,
                   thresh_callback );
 
 	thresh_callback( 0, 0 );
 
-	state->opencv_initialized = true;
-	
 	return NULL;
 }
 
@@ -350,21 +349,26 @@ void thresh_callback(int, void* )
 	if (curContour > contours.size() -1 ){
 		for( unsigned int i = 0; i< contours.size(); i++ ){
 			Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
-			drawContours( drawing, contours, i, color, 2, 8, hierarchy, 0, Point() );
+			drawContours( drawing, contours, i, color, 1, 8, hierarchy, 0, Point() );
 		}
 	} else {
 		Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
-		drawContours( drawing, contours, curContour, color, 2, 8, hierarchy, 0, Point() );
+		drawContours( drawing, contours, curContour, color, 1, 8, hierarchy, 0, Point() );
 	}
 
+	// cout << "drawing " << drawing << endl;
 
 	/// Show in a window
 	namedWindow( "Contours", CV_WINDOW_NORMAL );
 	imshow( "Contours", drawing );
+	state->opencv_initialized = true;
+	waitKey(0);
 }
 
 void DrawBot::draw(){
-	vector<vector<Point> > contours = GetContours(src_gray);
+	Mat fliped_src;
+	flip(src_gray, fliped_src, 1);
+	vector<vector<Point> > contours = GetContours(fliped_src);
 
 	double wait_t = 150000;//150000
 	double stepSize, stepX, stepY;
@@ -433,8 +437,10 @@ void DrawBot::basic_shape(string& shape) {
 	double x0 = state->origin_x, y0 = state->origin_y;
 	double x = x0, y = y0;
 	int wait_t = 100000;
+	int second = 1000000;
 
 	Arm.move_to(x0, y0, hoverH);
+	usleep(second);
 
 	if (shape == "square") {
 		int iters = 50;
@@ -464,16 +470,19 @@ void DrawBot::basic_shape(string& shape) {
 	} else if (shape == "circle") {
 		double R = 0.03;
         int iters = 180;
-        cin >> iters;
+        cout << "Radius: ";
+        cin >> R;
         double dtheta = 2 * pi / iters, theta = 0;
 
+        // cout << "stop1" << endl;
         Arm.move_to(x0 + R, y0, hoverH);
 
-        for (int i = 0; i < iters; ++i) {
+        for (int i = 0; i <= iters; ++i) {
             x = x0 + R * cos(theta + i * dtheta);
             y = y0 + R * sin(theta + i * dtheta);
             Arm.move_to(x, y, drawH);
-            // usleep(wait_t);
+        	// cout << "stop1" << endl;
+            usleep(wait_t);
         }
 	} else if (shape == "sine") {
 		double R = 0.03;
@@ -498,6 +507,9 @@ int main (int argc, char *argv[])
 {
 	cout << "\n============ INITIALIZING =============\n";
 
+
+	Picasso.drawH = 0.122;
+	Picasso.hoverH = 0.13;
 	//start vx
 	state->argc = argc;
 	state->argv = argv;
@@ -509,7 +521,7 @@ int main (int argc, char *argv[])
 	else src = imread( argv[1] ); 
 	pthread_create (&opencv_thread, NULL, start_opencv, (void*) NULL);
 	// Wait till opencv is initialized. 
-	while (state->opencv_initialized);
+	while (!state->opencv_initialized);
 
 	cout << "\n============ MAIN PROGRAM RUNNING =============\n";
 	
@@ -522,9 +534,11 @@ int main (int argc, char *argv[])
     	cin >> cmd;
 
 	    if (cmd == "draw") {
+	        cout << "drawing figure" << endl;
 	        Picasso.draw();
 
 	    } else if (cmd == "square" || cmd == "circle" || cmd == "sine") {
+	        cout << "drawing " << cmd << endl;
 	    	Picasso.basic_shape(cmd);
 
 	    } else if (cmd == "quit") {

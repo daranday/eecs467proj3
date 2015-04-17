@@ -81,6 +81,9 @@ void InverseKinematics::move_to(double x, double y, double z, double wrist_tilt)
     
 
     double R = sqrt(pow(x, 2) + pow(y, 2));
+    if (R > 0.3) {
+        exit(-1);
+    }
     // z += 0.003 / 0.03 * (R - 0.12369);
     Arm.cmd_angles[0] = eecs467::angle_sum(atan2(x, y), 0); // x and y reversed because angle begins from y, not x axis.
 
@@ -137,10 +140,10 @@ void InverseKinematics::move_joints(vector<double> joint_angles) {
         pthread_mutex_lock(&(Arm.lock));
         for (int i = 0; i < NUM_SERVOS; ++i) {
             error += abs(Arm.real_angles[i] + joint_angles[i]);
-            //printf("(%g, %g)\n", Arm.real_angles[i], joint_angles[i]);
+            // printf("(%g, %g)\n", Arm.real_angles[i], joint_angles[i]);
         }
         pthread_mutex_unlock(&(Arm.lock));
-        //cout << "error is " << error << endl;
+        // cout << "error is " << error << endl;
         if (error < 0.15)
             break;
         usleep(10000);

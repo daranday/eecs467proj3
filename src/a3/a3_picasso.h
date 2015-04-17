@@ -109,7 +109,7 @@ struct state_t {
 		use_cached_bbox_colors = (ifstream("Bbox_Colors.txt")) ? true : false;
 		use_cached_calibration = (ifstream("ConversionMatrices.txt")) ? true : false;
 		interval_x = 0.06; interval_y = 0.06;
-		origin_x = 0; origin_y = 0.15;
+		origin_x = 0; origin_y = 0.13;
 		vxworld = vx_world_create ();
 		vxeh = (vx_event_handler_t*)calloc (1, sizeof(*vxeh));
 		vxeh->key_event = key_event;
@@ -137,8 +137,9 @@ struct state_t {
 
 struct DrawBot {
 
-	double drawH = 0.1145;
-	double hoverH = 0.13;
+	// double drawH = 0.11;
+	double drawH;
+	double hoverH;
 
 
 
