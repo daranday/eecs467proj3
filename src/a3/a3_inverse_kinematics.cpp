@@ -57,15 +57,14 @@ status_loop (void *data)
     return NULL;
 }
 
-
-
 void InverseKinematics::move_to(double x, double y, double z, double wrist_tilt) {
     if (z < 0) {
         printf("z too low!\n");
         return;
     }
     // wrist_tilt = pi / 20.;
-    printf("Moving to %g, %g, %g\n", x, y, z);
+    //printf("Moving to %g, %g, %g\n", x, y, z);
+    cout << "Moving to " << x << " " << y << " " << z << endl;
     // bool moving_horizontal = false;
     // if (abs(x - Arm.cmd_position[0]) + abs(Arm.cmd_position[1] - y) > 0.0001) {
     //     Arm.cmd_angles[1] = -pi/6;
@@ -75,9 +74,15 @@ void InverseKinematics::move_to(double x, double y, double z, double wrist_tilt)
     Arm.cmd_position[0] = x;
     Arm.cmd_position[1] = y;
 
+    if (!Arm.offset_position.empty()) {
+        x += Arm.offset_position[0];
+        y += Arm.offset_position[1];
+    }
+    
     // Cheat Fix for arm.
-    y = y - 0.1 * x;
+    y = y - 0.2 * x;
 
+    cout << "Corrected Moving to " << x << " " << y << " " << z << endl;
     
     vector<double> arm_length = {0.118, 0.1, 0.0985, 0.099}; // change this accordingly
     vector<double> max_angles = {pi,pi/12,pi/12,pi/12}; // change this accordingly
@@ -90,7 +95,7 @@ void InverseKinematics::move_to(double x, double y, double z, double wrist_tilt)
     // z += 0.003 / 0.03 * (R - 0.12369);
     Arm.cmd_angles[0] = eecs467::angle_sum(atan2(x, y), 0); // x and y reversed because angle begins from y, not x axis.
     
-    cout << "Theta is " << Arm.cmd_angles[0] << endl;
+    // cout << "Theta is " << Arm.cmd_angles[0] << endl;
 
     // if (moving_horizontal)
     //     Arm.move_joints(Arm.cmd_angles);
@@ -103,6 +108,7 @@ void InverseKinematics::move_to(double x, double y, double z, double wrist_tilt)
     if (beta != beta || gamma != gamma) {
         beta = 0;
         gamma = pi;
+        cout << "APPROXIMATIONNNNNNNNNNNNNNNNNNN" << endl;
     }
 
     Arm.cmd_angles[1] = pi/2 - alpha - beta;
@@ -112,7 +118,7 @@ void InverseKinematics::move_to(double x, double y, double z, double wrist_tilt)
     Arm.cmd_angles[5] = -pi/2.;
 
     // send angles command
-    Arm.move_joints(Arm.cmd_angles);
+    Arm.move_joints(Arm.cmd_angles, true);
 }
 
 void InverseKinematics::transition_to(double x, double y, double z) {
@@ -125,7 +131,7 @@ void InverseKinematics::transition_to(double x, double y, double z) {
     move_to(x,y,z);
 }
 
-void InverseKinematics::move_joints(vector<double> joint_angles) {
+void InverseKinematics::move_joints(vector<double> joint_angles, bool move_to) {
     // send angles command
     dynamixel_command_list_t cmds;
     cmds.len = NUM_SERVOS;
@@ -139,7 +145,8 @@ void InverseKinematics::move_joints(vector<double> joint_angles) {
     // cmds.commands[5].position_radians *= -1;
     assert(Arm.lcm != NULL);
     dynamixel_command_list_t_publish (Arm.lcm, Arm.command_channel, &cmds);
-        
+      
+      
     while(1) {
         double error = 0;
         pthread_mutex_lock(&(Arm.lock));
@@ -149,10 +156,27 @@ void InverseKinematics::move_joints(vector<double> joint_angles) {
         }
         pthread_mutex_unlock(&(Arm.lock));
         // cout << "error is " << error << endl;
-        if (error < 0.1)
+        if (error < 0.15)
             break;
+
         usleep(10000);
     }
+
+    if (move_to) {
+        vector<double> arm_length = {0.118, 0.1, 0.0985, 0.099}; // change this accordingly
+        // cout << "real theta2 = " << Arm.real_angles[1] << ", theta4 = " << -Arm.real_angles[3] << endl;
+        double R = arm_length[1] * sin(Arm.real_angles[1]) + arm_length[2] * sin(-Arm.real_angles[3]);
+        double real_x = -R * sin(Arm.real_angles[0]);
+        double real_y = R * cos(Arm.real_angles[0]);
+
+        cout << "real theta0 = " << Arm.real_angles[0] << endl;
+
+        cout << "Real x and y: " << real_x << ", " << real_y << endl;
+        Arm.offset_position.clear();
+        Arm.offset_position = {Arm.cmd_position[0] - real_x, Arm.cmd_position[1] - real_y};
+    }
+
+
     //cout << "Arm.move_joints(): Action completed." << endl;
     
 }
@@ -199,7 +223,7 @@ void InverseKinematics::drop() {
 
 void InverseKinematics::stand() {
     const double claw_rest_angle_c = -(pi/2 * 5/5.);
-    vector<double> initial_joints = {0, 0, 0, 0, -pi/2., claw_rest_angle_c};
+    vector<double> initial_joints = {0, 0, 0, pi/2, -pi/2., claw_rest_angle_c};
     // Arm.cmd_angles[0] = pi/4;
     // Arm.cmd_angles[1] = -pi/6;
     // Arm.move_joints(Arm.cmd_angles);

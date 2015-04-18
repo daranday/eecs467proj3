@@ -23,14 +23,15 @@ struct InverseKinematics
     int stages;
     std::vector<double> cmd_angles;
     std::vector<double> cmd_position;
+    std::vector<double> offset_position;
     std::vector<double> real_angles;
     pthread_mutex_t lock;
     bool running;
 
-    InverseKinematics() : stages(0), cmd_angles(6), cmd_position(3), real_angles(6), running(true) {}
+    InverseKinematics() : stages(0), cmd_angles(6), cmd_position(3), real_angles(6), running(true), offset_position() {}
     int start (int argc, char *argv[]);
 
-    void move_joints(std::vector<double> joint_angles);
+    void move_joints(std::vector<double> joint_angles, bool move_to = false);
     void move_to(double x, double y, double z, double wrist_tilt = 0);
     void transition_to(double x, double y, double z);
     void relax();
