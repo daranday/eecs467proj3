@@ -29,6 +29,11 @@ int const max_kernel_size =1;
 state_t state_obj;
 state_t *state = &state_obj;
 
+DrawBot::DrawBot() {
+	drawH = 0.132;
+	hoverH = 0.14;
+}
+
 // Initiaize draw bot
 DrawBot Picasso;
 
@@ -210,7 +215,7 @@ void* start_opencv(void * arg) {
 	cvtColor( src, src_gray, CV_BGR2GRAY );
 	//Canny( src_gray, src_gray, thresh, thresh*2, 3 );
 	blur( src_gray, src_gray, Size(3,3) );
-	// blur( src_gray, src_gray, Size(3,3) );
+	blur( src_gray, src_gray, Size(3,3) );
 
 	
 	int erosion_type = 0;
@@ -224,25 +229,55 @@ void* start_opencv(void * arg) {
 
 	/// Apply the erosion operation
 	erode( src_gray, src_gray, element );
+
+
+
+	// Skeletonization
+	Mat img = src_gray.clone();
+	bitwise_not(img, img);
+	threshold(img, img, 127, 255, THRESH_BINARY);
+	Mat skel(img.size(), CV_8UC1, Scalar(0));
+	Mat temp(img.size(), CV_8UC1);
+	Mat element2 = getStructuringElement(MORPH_CROSS, Size(3, 3));
+	namedWindow("Obama", CV_WINDOW_NORMAL);
+	imshow("Obama", img);
+	waitKey(0);
+	bool done;
+	do
+	{
+		morphologyEx(img, temp, MORPH_OPEN, element2);
+		bitwise_not(temp, temp);
+		bitwise_and(img, temp, temp);
+		bitwise_or(skel, temp, skel);
+		erode(img, img, element2);
+
+		double max;
+		minMaxLoc(img, 0, &max);
+		done = (max == 0);
+	} while (!done);
+	namedWindow("Skeleton", CV_WINDOW_NORMAL);
+	imshow("Skeleton", skel);
+	waitKey(0);
 	
 
 	/// Create Window
-	const char* source_window = "Source";
-	namedWindow( source_window, CV_WINDOW_NORMAL );
-	imshow( source_window, src_gray );
+	namedWindow( "Source", CV_WINDOW_NORMAL );
+	imshow( "Source", src_gray );
+
+	namedWindow("Contours", CV_WINDOW_NORMAL);
 
 
-	createTrackbar( " Thresh:", "Source", &thresh, max_thresh, thresh_callback );
+	createTrackbar( " Thresh:", "Contours", &thresh, max_thresh, thresh_callback );
 	/*
 	createTrackbar( "Element:\n 0: Rect \n 1: Cross \n 2: Ellipse", "Source",
                   &dilation_elem, max_elem,
                   thresh_callback );
 	*/
-    createTrackbar( "Canny On:\n", "Source",
+    createTrackbar( "Canny On:\n", "Contours",
                   &canny, max_kernel_size,
                   thresh_callback );
 
-    createTrackbar( "Contour", "Source",
+    createTrackbar( "Contour", "Contours",
                   &curContour, maxContour,
                   thresh_callback );
 
@@ -324,20 +359,34 @@ vector<vector<Point> > GetContours(Mat& src) {
 		cout << "Using Threshold" << endl;	
 		threshold( src, dst, thresh, thresh*2,3);
 	}
+	// medianBlur(dst, dst, 7);
 
 	/// Find contours
 	findContours( dst, contours, hierarchy, CV_RETR_CCOMP, CV_CHAIN_APPROX_NONE, Point(0, 0) );
+	// vector<vector<Point> > contours_poly( contours.size() );
+	// for (int i = 0; i < contours.size(); ++i) {
+	// 	approxPolyDP( Mat(contours[i]), contours[i], 3, true );
+	// }
+
+	// Delete the image frame contour
+	if (canny == 0)
+		for (int i = 0; i < contours.size(); ++i) {
+			if (src.rows * 4 * 0.9 <= contours[i].size() && contours[i].size() <= src.rows * 4 * 1.1) {
+				contours.erase(contours.begin() + i);
+				break;
+			}
+		}
 
 	/// Output contours
-	cout << "Number of Contours " << contours.size() << endl;
+	cout << "Number of contours " << contours.size() << endl;
 	return contours;
 }
 
 
 void thresh_callback(int, void* )
 {
-	double imageSize = 100;
-	resize(src_gray,src_gray,Size(),imageSize/src_gray.cols,imageSize/src_gray.rows,INTER_AREA);
+	double imageSize = 80;
+	//resize(src_gray,src_gray,Size(),imageSize/src_gray.cols,imageSize/src_gray.rows,INTER_AREA);
 	
 	vector<vector<Point> > contours = GetContours(src_gray);
 
@@ -349,6 +398,7 @@ void thresh_callback(int, void* )
 	if (curContour > contours.size() -1 ){
 		for( unsigned int i = 0; i< contours.size(); i++ ){
 			Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
+			cout << contours[i].size() << endl;
 			drawContours( drawing, contours, i, color, 1, 8, hierarchy, 0, Point() );
 		}
 	} else {
@@ -359,13 +409,23 @@ void thresh_callback(int, void* )
 	// cout << "drawing " << drawing << endl;
 
 	/// Show in a window
-	namedWindow( "Contours", CV_WINDOW_NORMAL );
+	// namedWindow( "Contours", CV_WINDOW_NORMAL );
 	imshow( "Contours", drawing );
 	state->opencv_initialized = true;
 	waitKey(0);
 }
 
+Point adapt_angle(Point p) {
+	Point new_p;    
+    new_p.x = -p.x;
+    new_p.y = -(p.y - 0.1 * p.x);
+    cout << "Point: " << p << endl;
+    cout << "Modified point: " << new_p << endl;
+    return new_p;
+}
+
 void DrawBot::draw(){
+	double imageSize = 80;
 	Mat fliped_src;
 	flip(src_gray, fliped_src, 1);
 	vector<vector<Point> > contours = GetContours(fliped_src);
@@ -381,14 +441,23 @@ void DrawBot::draw(){
 	cout << "Ready" << endl;
 	for (unsigned int i = 0; i < contours.size(); i++){
 		//if(hierarchy[i][3] >= 0){
+			drawH = .12;
 			Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
 
 			prev = contours[i][0];
 			contours[i].push_back(prev);
+			prev.x = prev.x*imageSize/src_gray.cols;
+			prev.y = prev.y*imageSize/src_gray.rows;
+			
 
 			// lift arm to start point of current contour
-			double start_x = ((double)contours[i][0].x - 50)/1000.;
-			double start_y = ((double)contours[i][0].y + 60)/1000.;
+			double x_dist = -50;
+			double y_dist = 50;
+			double scale = 1000;
+			double start_x = ((double)contours[i][0].x*imageSize/src_gray.cols+ x_dist)/scale;
+			double start_y = ((double)contours[i][0].y*imageSize/src_gray.rows + y_dist)/scale;
+
+
 			Arm.move_to(start_x, start_y, hoverH);
 			usleep(wait_t);
 			Arm.move_to(start_x, start_y, drawH);
@@ -398,8 +467,13 @@ void DrawBot::draw(){
 				cout << contours[i][j] << " " << endl;
 
 				cur = contours[i][j];
+				cur.x = cur.x*imageSize/src_gray.cols;
+				cur.y = cur.y*imageSize/src_gray.rows;
 				diff = cur - prev; 
-				// vector<float> cur_points = {(float)(prev.x / 1000.), (float)(prev.y / 1000.), (float)0.001, (float)(cur.x / 1000.), (float)(cur.y / 1000.), (float)0.001};
+
+				// Point mod_prev = adapt_angle(prev);
+				// Point mod_cur = adapt_angle(cur);
+				// vector<float> cur_points = {(float)(mod_prev.x / scale), (float)(mod_prev.y / scale), (float)0.001, (float)(mod_cur.x / scale), (float)(mod_cur.y / scale), (float)0.001};
 				// points.insert(points.end(), cur_points.begin(), cur_points.end());
 				// vx_resc_t *verts = vx_resc_copyf(points.data(), points.size());
 				// vx_buffer_add_back(vx_world_get_buffer(state->vxworld, "drawing_vector"), 
@@ -413,20 +487,26 @@ void DrawBot::draw(){
 				stepX = ((double)diff.x)/stepSize;
 				stepY = ((double)diff.y)/stepSize;
 				for( double k = 1; k < stepSize; k++){
+					drawH = .12;
+
+					// if (((double)prev.y + y_dist + k*stepY) > 60 ) drawH = .123;
+					// else if ((((double)prev.y + y_dist + k*stepY) > 120 )) drawH = .125;
+
 					cout << " midpoint with stepY= " << stepY*k << " ";
-					Arm.move_to(((double)prev.x - 50 + k*stepX)/1000., ((double)prev.y  + 50 + k*stepY)/1000., drawH  );
+					Arm.move_to(((double)prev.x  + x_dist + k*stepX)/scale, ((double)prev.y + y_dist + k*stepY)/scale, drawH  );
 					usleep(wait_t);
 				}
 
-				cout << ((double)cur.x-50)/1000. << " " << ((double)cur.y + 60)/1000. << endl;
-				Arm.move_to(((double)cur.x-50)/1000., ((double)cur.y + 60)/1000., drawH);
+				cout << ((double)cur.x + x_dist)/scale << " " << ((double)cur.y + y_dist)/scale << endl;
+				Arm.move_to(((double)cur.x + x_dist)/scale, ((double)cur.y + y_dist)/scale, drawH);
 				usleep(wait_t);
 				prev = cur;
 				totalPoints++;
 			}
 			cout << endl;
 			cout << "Contour " << i << " length is " << contours[i].size() << endl;
-			Arm.move_to(((double)cur.x-50)/1000., ((double)cur.y + 50)/1000., hoverH  );
+			usleep(wait_t);
+			Arm.move_to(Arm.cmd_position[0], Arm.cmd_position[1], hoverH  );
 			usleep(wait_t);
 		//}
 	}
@@ -506,10 +586,6 @@ void DrawBot::basic_shape(string& shape) {
 int main (int argc, char *argv[])
 {
 	cout << "\n============ INITIALIZING =============\n";
-
-
-	Picasso.drawH = 0.122;
-	Picasso.hoverH = 0.13;
 	//start vx
 	state->argc = argc;
 	state->argv = argv;
@@ -525,6 +601,8 @@ int main (int argc, char *argv[])
 
 	cout << "\n============ MAIN PROGRAM RUNNING =============\n";
 	
+	Picasso.draw();
+
 	// Command loop
 	while(true) {
 	    double a, b, c;

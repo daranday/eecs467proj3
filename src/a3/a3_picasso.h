@@ -12,6 +12,8 @@
 #include <iostream>
 #include <vector>
 
+#include "math/angle_functions.hpp"    // This is where a lot of the internals live
+
 
 // core api
 #include "vx/vx.h"
@@ -146,6 +148,8 @@ struct DrawBot {
 	void axes();
 	void draw();
 	void basic_shape(std::string& shape);
+
+	DrawBot();
 };
 
 extern DrawBot Picasso;

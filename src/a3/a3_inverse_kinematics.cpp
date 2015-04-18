@@ -75,6 +75,9 @@ void InverseKinematics::move_to(double x, double y, double z, double wrist_tilt)
     Arm.cmd_position[0] = x;
     Arm.cmd_position[1] = y;
 
+    // Cheat Fix for arm.
+    y = y - 0.1 * x;
+
     
     vector<double> arm_length = {0.118, 0.1, 0.0985, 0.099}; // change this accordingly
     vector<double> max_angles = {pi,pi/12,pi/12,pi/12}; // change this accordingly
@@ -86,6 +89,8 @@ void InverseKinematics::move_to(double x, double y, double z, double wrist_tilt)
     }
     // z += 0.003 / 0.03 * (R - 0.12369);
     Arm.cmd_angles[0] = eecs467::angle_sum(atan2(x, y), 0); // x and y reversed because angle begins from y, not x axis.
+    
+    cout << "Theta is " << Arm.cmd_angles[0] << endl;
 
     // if (moving_horizontal)
     //     Arm.move_joints(Arm.cmd_angles);
@@ -103,7 +108,7 @@ void InverseKinematics::move_to(double x, double y, double z, double wrist_tilt)
     Arm.cmd_angles[1] = pi/2 - alpha - beta;
     Arm.cmd_angles[2] = pi - gamma;
     Arm.cmd_angles[3] = pi - Arm.cmd_angles[1] - Arm.cmd_angles[2] - wrist_tilt;
-    Arm.cmd_angles[4] = pi/2.;
+    Arm.cmd_angles[4] = -pi/2.;
     Arm.cmd_angles[5] = -pi/2.;
 
     // send angles command
@@ -129,7 +134,7 @@ void InverseKinematics::move_joints(vector<double> joint_angles) {
         cmds.commands[id].utime = utime_now ();
         cmds.commands[id].position_radians = -joint_angles[id];
         cmds.commands[id].speed = 0.08;
-        cmds.commands[id].max_torque = 0.75;
+        cmds.commands[id].max_torque = 0.85;
     }
     // cmds.commands[5].position_radians *= -1;
     assert(Arm.lcm != NULL);
@@ -144,7 +149,7 @@ void InverseKinematics::move_joints(vector<double> joint_angles) {
         }
         pthread_mutex_unlock(&(Arm.lock));
         // cout << "error is " << error << endl;
-        if (error < 0.15)
+        if (error < 0.1)
             break;
         usleep(10000);
     }
@@ -194,7 +199,7 @@ void InverseKinematics::drop() {
 
 void InverseKinematics::stand() {
     const double claw_rest_angle_c = -(pi/2 * 5/5.);
-    vector<double> initial_joints = {0, 0, 0, 0, pi/2., claw_rest_angle_c};
+    vector<double> initial_joints = {0, 0, 0, 0, -pi/2., claw_rest_angle_c};
     // Arm.cmd_angles[0] = pi/4;
     // Arm.cmd_angles[1] = -pi/6;
     // Arm.move_joints(Arm.cmd_angles);
