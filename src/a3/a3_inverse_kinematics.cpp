@@ -73,14 +73,16 @@ void InverseKinematics::move_to(double x, double y, double z, double wrist_tilt)
     // }
     Arm.cmd_position[0] = x;
     Arm.cmd_position[1] = y;
+    // Arm.cmd_position[2] = z;
 
-    if (!Arm.offset_position.empty()) {
-        x += Arm.offset_position[0];
-        y += Arm.offset_position[1];
-    }
+    // if (!Arm.offset_position.empty()) {
+    //     x += Arm.offset_position[0];
+    //     y += Arm.offset_position[1];
+    //     // z += Arm.offset_position[2];
+    // }
     
     // Cheat Fix for arm.
-    y = y - 0.2 * x;
+    y = y + abs(0.05 * x);
 
     cout << "Corrected Moving to " << x << " " << y << " " << z << endl;
     
@@ -164,10 +166,13 @@ void InverseKinematics::move_joints(vector<double> joint_angles, bool move_to) {
 
     if (move_to) {
         vector<double> arm_length = {0.118, 0.1, 0.0985, 0.099}; // change this accordingly
-        // cout << "real theta2 = " << Arm.real_angles[1] << ", theta4 = " << -Arm.real_angles[3] << endl;
-        double R = arm_length[1] * sin(Arm.real_angles[1]) + arm_length[2] * sin(-Arm.real_angles[3]);
-        double real_x = -R * sin(Arm.real_angles[0]);
-        double real_y = R * cos(Arm.real_angles[0]);
+        cout << "real theta2 = " << -Arm.real_angles[1] << ", theta4 = " << -Arm.real_angles[3] << endl;
+        double R = arm_length[1] * sin(-Arm.real_angles[1]) + arm_length[2] * sin(-Arm.real_angles[3]);
+        cout << "real R = " << R << endl;
+        double real_x = R * sin(-Arm.real_angles[0]);
+        double real_y = R * cos(-Arm.real_angles[0]);
+        // double real_z = arm_length[0] + arm_length[1] * cos(-Arm.real_angles[1]) + arm_length[2] * cos(-Arm.real_angles[1]-Arm.real_angles[2])
+        //                 + arm_length[3] * cos(-Arm.real_angles[1]-Arm.real_angles[2]-Arm.real_angles[2]);
 
         cout << "real theta0 = " << Arm.real_angles[0] << endl;
 

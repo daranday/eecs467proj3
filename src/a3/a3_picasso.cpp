@@ -445,7 +445,7 @@ void DrawBot::draw(){
 	Point prev, cur, diff;
 	vector<float> points;
 	int totalPoints = 0;
-	double height = .12;
+	double height = .123;
   	Arm.stand();
 
 	cout << "Ready" << endl;
@@ -461,7 +461,7 @@ void DrawBot::draw(){
 			
 
 			// lift arm to start point of current contour
-			double x_dist = -50;
+			double x_dist = -25;
 			double y_dist = 63;
 			double scale = 1000;
 			double start_x = ((double)contours[i][0].x*imageSize/src_gray.cols+ x_dist)/scale;
@@ -504,7 +504,9 @@ void DrawBot::draw(){
 			cout << endl;
 			cout << "Contour " << i << " length is " << contours[i].size() << endl;
 			usleep(wait_t*3);
-			Arm.move_to(Arm.cmd_position[0], Arm.cmd_position[1] + 0.005, hoverH  );
+			// Arm.move_to(Arm.cmd_position[0], Arm.cmd_position[1] + 0.005, hoverH  );
+			Arm.cmd_angles[1] -= pi/12; 
+			Arm.move_joints(Arm.cmd_angles);
 			usleep(wait_t);
 		//}
 	}
