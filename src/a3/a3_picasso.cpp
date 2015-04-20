@@ -1,5 +1,5 @@
 #include "a3_picasso.h"
-
+#include <map>
 
 using namespace std;
 using namespace cv;
@@ -31,7 +31,7 @@ state_t *state = &state_obj;
 
 DrawBot::DrawBot() {
 	drawH = 0.12;
-	hoverH = 0.14;
+	hoverH = 0.125;
 }
 
 // Initiaize draw bot
@@ -363,25 +363,32 @@ vector<vector<Point> > GetContours(Mat& src) {
 	// 	approxPolyDP( Mat(contours[i]), contours[i], 3, true );
 	// }
 
+	int total = 0;
+	for (int i = 0; i < contours.size(); ++i) {
+		total += contours[i].size();
+	}
+
 	// Delete the image frame contour
-	if (canny == 0)
-		for (int i = 0; i < contours.size(); ++i) {
-			if (src.rows * 4 * 0.9 <= contours[i].size() && contours[i].size() <= src.rows * 4 * 1.1) {
-				contours.erase(contours.begin() + i);
-				break;
-			}
+	// if (canny == 0)
+	for (int i = 0; i < contours.size(); ++i) {
+		if (src.rows * 4 * 0.9 <= contours[i].size() && contours[i].size() <= src.rows * 4 * 1.1) {
+			contours.erase(contours.begin() + i);
+			break;
 		}
+	}
 
 	/// Output contours
 	cout << "Number of contours " << contours.size() << endl;
+	cout << "Total points: " << total << endl;
 	return contours;
 }
 
 
 void thresh_callback(int, void* )
 {
-	double imageSize = 80;
-	resize(src_gray,src_gray,Size(),imageSize/src_gray.cols,imageSize/src_gray.rows,INTER_AREA);
+	double imageSize = 150;
+
+	resize(src_gray,src_gray,Size(),imageSize/src_gray.cols,imageSize/src_gray.cols,INTER_AREA);
 	
 	vector<vector<Point> > contours = GetContours(src_gray);
 
@@ -420,25 +427,33 @@ Point adapt_angle(Point p) {
 
 double adjustHeight(double y){
 	double height;
-	double low = .113;
-	double med = .117;//.119
-	double high = .12; //.123
+	double disp = -0.002;
+	double low = .116 + disp;
+	double med = .118 + disp;//.119
+	double high = .119 + disp; //.123
 	height = low;
-	if (y >60){
+	if (y >75){
 		height = med;
 	}
 	else if (y >120){
 		height = high;
 	}
 	Picasso.drawH = height;
+	Picasso.hoverH = Picasso.drawH + .005;
 	return height;
 }
 
 void DrawBot::draw(){
 	double imageSize = 80;
 	Mat fliped_src;
-	flip(src_gray, fliped_src, 1);
+	flip(src_gray, fliped_src, -1);
+	transpose(fliped_src,fliped_src);
 	vector<vector<Point> > contours = GetContours(fliped_src);
+
+	double x_dist = -40;
+	double y_dist = 65;
+	double y_scale = 1;
+	double scale = 1000;
 
 	double wait_t = 150000;//150000
 	double stepSize, stepX, stepY;
@@ -461,24 +476,30 @@ void DrawBot::draw(){
 			
 
 			// lift arm to start point of current contour
-			double x_dist = -25;
-			double y_dist = 63;
-			double scale = 1000;
 			double start_x = ((double)contours[i][0].x*imageSize/src_gray.cols+ x_dist)/scale;
-			double start_y = ((double)contours[i][0].y*imageSize/src_gray.rows + y_dist)/scale;
+			double start_y = ((double)contours[i][0].y*imageSize/src_gray.rows * y_scale + y_dist)/scale;
 
 
 			Arm.move_to(start_x, start_y, hoverH);
-			usleep(wait_t*5);
-			Arm.move_to(start_x, start_y, height);
-			usleep(wait_t);
+			usleep(wait_t*7);
+			height = adjustHeight(start_y*scale);
+			Arm.move_to(start_x, start_y, height, 0, true);
+			usleep(wait_t*3);
+
+			map<pair<int, int>, int> visited;
+			visited[make_pair(prev.x, prev.y)] = 0;
+
+			bool raised = false, dropping = false;
 
 			for (unsigned int j = 0; j < contours[i].size(); j++){
-				cout << contours[i][j] << " " << endl;
 				cur = contours[i][j];
+
+
 				cur.x = cur.x*imageSize/src_gray.cols;
 				cur.y = cur.y*imageSize/src_gray.rows;
-				diff = cur - prev; 
+				diff = cur - prev;
+				cout << "[" << cur.x << ", " << cur.y << "]" << endl;
+
 
 				if (abs(diff.x) > abs(diff.y))stepSize = abs(diff.x);
 				else stepSize = abs(diff.y);
@@ -486,20 +507,39 @@ void DrawBot::draw(){
 				stepX = ((double)diff.x)/stepSize;
 				stepY = ((double)diff.y)/stepSize;
 
+				// if points already visited
+				// if (visited.find(make_pair(cur.x, cur.y)) != visited.end()) {
+				// 	if (j - visited[make_pair(cur.x, cur.y)] < 10)
+				// 		continue;
+				// 	if (raised == false) {
+				// 		Arm.cmd_angles[1] -= pi/24;
+				// 		Arm.move_joints(Arm.cmd_angles);
+				// 		raised = true;
+				// 	}
+				// 	cout << "Skipping over " << cur.x << ", " << cur.y << endl;
+				// } else {
+				// 	if (raised == true)
+				// 		dropping = true;
+				// 	raised = false;
+				// }
 
 				for( double k = 1; k < stepSize; k++){
 					height = adjustHeight((double)prev.y + y_dist + k*stepY);
 					cout << " midpoint with stepY= " << stepY*k << " ";
-					Arm.move_to(((double)prev.x  + x_dist + k*stepX)/scale, ((double)prev.y + y_dist + k*stepY)/scale, height  );
+					Arm.move_to(((double)prev.x + x_dist + k*stepX)/scale, ((double)prev.y * y_scale + y_dist + k*stepY)/scale, raised ? hoverH : height);
 					usleep(wait_t);
 				}
 				height = adjustHeight((double)cur.y + y_dist);		
 
 				cout << ((double)cur.x + x_dist)/scale << " " << ((double)cur.y + y_dist)/scale << endl;
-				Arm.move_to(((double)cur.x + x_dist)/scale, ((double)cur.y + y_dist+2)/scale, height);
+				Arm.move_to(((double)cur.x + x_dist)/scale, ((double)cur.y * y_scale + y_dist)/scale, raised ? hoverH : height, 
+								0, dropping);
+				// dropping = false;
 				usleep(wait_t);
 				prev = cur;
 				totalPoints++;
+
+				visited[make_pair(cur.x, cur.y)] = j;
 			}
 			cout << endl;
 			cout << "Contour " << i << " length is " << contours[i].size() << endl;
@@ -559,6 +599,7 @@ void DrawBot::basic_shape(string& shape) {
         drawH = 0.12;
 
         for (int i = 0; i <= iters; ++i) {
+        	adjustHeight(y);
             x = x0 + R * cos(theta + i * dtheta);
             y = y0 + R * sin(theta + i * dtheta);
             Arm.move_to(x, y, drawH);
@@ -620,6 +661,8 @@ int main (int argc, char *argv[])
 	        cout << "drawing " << cmd << endl;
 	    	Picasso.basic_shape(cmd);
 
+	    } else if (cmd == "stand") {
+	    	Arm.stand();
 	    } else if (cmd == "quit") {
 	        Arm.running = false;
 	        break;

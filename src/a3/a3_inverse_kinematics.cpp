@@ -57,7 +57,7 @@ status_loop (void *data)
     return NULL;
 }
 
-void InverseKinematics::move_to(double x, double y, double z, double wrist_tilt) {
+void InverseKinematics::move_to(double x, double y, double z, double wrist_tilt, bool dropping) {
     if (z < 0) {
         printf("z too low!\n");
         return;
@@ -82,9 +82,14 @@ void InverseKinematics::move_to(double x, double y, double z, double wrist_tilt)
     // }
     
     // Cheat Fix for arm.
-    y = y + abs(0.05 * x);
+    // if (x > 0)
+    //     x = x + 0.1 * (y - 0.12);
+    // else
+    //     x = x - 0.1 * (y - 0.12);
 
-    cout << "Corrected Moving to " << x << " " << y << " " << z << endl;
+    // y = y + abs(0.05 * x);
+
+    // cout << "Corrected Moving to " << x << " " << y << " " << z << endl;
     
     vector<double> arm_length = {0.118, 0.1, 0.0985, 0.099}; // change this accordingly
     vector<double> max_angles = {pi,pi/12,pi/12,pi/12}; // change this accordingly
@@ -116,10 +121,20 @@ void InverseKinematics::move_to(double x, double y, double z, double wrist_tilt)
     Arm.cmd_angles[1] = pi/2 - alpha - beta;
     Arm.cmd_angles[2] = pi - gamma;
     Arm.cmd_angles[3] = pi - Arm.cmd_angles[1] - Arm.cmd_angles[2] - wrist_tilt;
-    Arm.cmd_angles[4] = -pi/2.;
+    Arm.cmd_angles[4] = -pi/2. + Arm.cmd_angles[0] ;
     Arm.cmd_angles[5] = -pi/2.;
 
     // send angles command
+    // Arm.cmd_angles[1] -= pi/24;
+    // Arm.move_joints(Arm.cmd_angles, true);
+    // Arm.cmd_angles[1] += pi/24;
+    // Arm.move_joints(Arm.cmd_angles, true);
+    // Arm.cmd_angles[1] -= pi/24;
+    if (dropping) {
+        Arm.cmd_angles[1] -= pi/24;
+        Arm.move_joints(Arm.cmd_angles);
+        Arm.cmd_angles[1] += pi/24;
+    }
     Arm.move_joints(Arm.cmd_angles, true);
 }
 
@@ -163,24 +178,25 @@ void InverseKinematics::move_joints(vector<double> joint_angles, bool move_to) {
 
         usleep(10000);
     }
+    
+    // if (move_to) {
+    //     vector<double> arm_length = {0.118, 0.1, 0.0985, 0.099}; // change this accordingly
+    //     // cout << "real theta2 = " << -Arm.real_angles[1] << ", theta4 = " << -Arm.real_angles[3] << endl;
+    //     double R = arm_length[1] * sin(-Arm.real_angles[1]) + arm_length[2] * sin(-Arm.real_angles[3]);
+    //     // cout << "real R = " << R << endl;
+    //     double real_x = R * sin(-Arm.real_angles[0]);
+    //     double real_y = R * cos(-Arm.real_angles[0]);
+    //     // double real_z = arm_length[0] + arm_length[1] * cos(-Arm.real_angles[1]) + arm_length[2] * cos(-Arm.real_angles[1]-Arm.real_angles[2])
+    //     //                 + arm_length[3] * cos(-Arm.real_angles[1]-Arm.real_angles[2]-Arm.real_angles[2]);
 
-    if (move_to) {
-        vector<double> arm_length = {0.118, 0.1, 0.0985, 0.099}; // change this accordingly
-        cout << "real theta2 = " << -Arm.real_angles[1] << ", theta4 = " << -Arm.real_angles[3] << endl;
-        double R = arm_length[1] * sin(-Arm.real_angles[1]) + arm_length[2] * sin(-Arm.real_angles[3]);
-        cout << "real R = " << R << endl;
-        double real_x = R * sin(-Arm.real_angles[0]);
-        double real_y = R * cos(-Arm.real_angles[0]);
-        // double real_z = arm_length[0] + arm_length[1] * cos(-Arm.real_angles[1]) + arm_length[2] * cos(-Arm.real_angles[1]-Arm.real_angles[2])
-        //                 + arm_length[3] * cos(-Arm.real_angles[1]-Arm.real_angles[2]-Arm.real_angles[2]);
+    //     // cout << "real theta0 = " << Arm.real_angles[0] << endl;
 
-        cout << "real theta0 = " << Arm.real_angles[0] << endl;
-
-        cout << "Real x and y: " << real_x << ", " << real_y << endl;
-        Arm.offset_position.clear();
-        Arm.offset_position = {Arm.cmd_position[0] - real_x, Arm.cmd_position[1] - real_y};
-    }
-
+    //     // cout << "Real x and y: " << real_x << ", " << real_y << endl;
+    //     Arm.offset_position.clear();
+    //     Arm.offset_position = {Arm.cmd_position[0] - real_x, Arm.cmd_position[1] - real_y};
+    // }
+    
+    
 
     //cout << "Arm.move_joints(): Action completed." << endl;
     

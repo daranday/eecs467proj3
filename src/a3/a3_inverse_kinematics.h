@@ -32,7 +32,7 @@ struct InverseKinematics
     int start (int argc, char *argv[]);
 
     void move_joints(std::vector<double> joint_angles, bool move_to = false);
-    void move_to(double x, double y, double z, double wrist_tilt = 0);
+    void move_to(double x, double y, double z, double wrist_tilt = 0, bool dropping = false);
     void transition_to(double x, double y, double z);
     void relax();
     void fetch();
