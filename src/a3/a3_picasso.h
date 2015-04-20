@@ -146,8 +146,9 @@ struct DrawBot {
 
 
 	void axes();
-	void draw();
+	void draw(bool use_skeleton = false);
 	void basic_shape(std::string& shape);
+	void skeleton();
 
 	DrawBot();
 };

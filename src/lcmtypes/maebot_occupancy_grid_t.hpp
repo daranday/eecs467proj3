@@ -181,8 +181,8 @@ int maebot_occupancy_grid_t::_decodeNoHash(const void *buf, int offset, int maxl
     tlen = __int32_t_decode_array(buf, offset + pos, maxlen - pos, &this->num_cells, 1);
     if(tlen < 0) return tlen; else pos += tlen;
 
+    this->cells.resize(this->num_cells);
     if(this->num_cells) {
-        this->cells.resize(this->num_cells);
         tlen = __int8_t_decode_array(buf, offset + pos, maxlen - pos, &this->cells[0], this->num_cells);
         if(tlen < 0) return tlen; else pos += tlen;
     }

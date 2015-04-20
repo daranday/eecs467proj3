@@ -16,6 +16,7 @@ class maebot_targeting_laser_command_t
     public:
         int64_t    utime;
 
+        /// True/1 means on.
         int8_t     laser_power;
 
     public:

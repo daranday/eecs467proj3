@@ -1,4 +1,5 @@
 #include "a3_picasso.h"
+#include <queue>
 
 
 using namespace std;
@@ -10,6 +11,8 @@ double pi = 3.1415926;
 
 Mat src, erosion_dst, dilation_dst, dst;
 Mat src_gray;
+vector<vector<Point> > image_contours;
+vector<vector<Point> > skeletons;
 vector<Vec4i> hierarchy;
 int thresh = 60;
 int max_thresh = 255;
@@ -209,8 +212,69 @@ void* start_inverse_kinematics(void* user) {
 	return NULL;
 }
 
+void get_gradient(vector<Point>& pts, double& slope, double& intercept) {
+	int count = 3;
+	int sumX = 0, sumY = 0, sumX2, sumXY, xMean = 0, yMean = 0;
+	for (int i = 0; i < pts.size(); ++i) {
+		sumX += pts[i].x;
+		sumY += pts[i].y;
+		sumX2 += pts[i].x * pts[i].x;
+		sumXY += pts[i].x * pts[i].y;
+	}
+	xMean = sumX / count;
+	yMean = sumY / count;
+	slope = (sumXY - sumX * yMean) / (sumX2 - sumX * xMean);
+	intercept = yMean - slope * xMean;
+}
+
+vector<Point> image_explore(Mat& img, unsigned char * input, vector<vector<int>>& group_map, int current_group, int a, int b) {
+	queue<Point> frontier;
+	frontier.push(Point(a,b));
+	vector<Point> nodes;
+	nodes.push_back(Point(a,b));
+	group_map[a][b] = current_group;
+
+
+	cout << "current_group: " << current_group << endl;
+	waitKey(0);
+	while (!frontier.empty()) {
+		Point p = frontier.front();
+		frontier.pop();
+
+		for (int i = p.x-1; i <= p.x+1; ++i) {
+			for (int j = p.y-1; j <= p.y+1; ++j) {
+				if (!(i == p.x && j == p.y)
+					&& (i >= 0 && i < img.cols)
+					&& (j >= 0 && j < img.rows)) {
+					unsigned char b = input[img.step * j + i ];
+					if (b == 255 && group_map[i][j] == 0) {
+	        			Point cur = Point(i, j);
+
+	     //    			double slope, intercept;
+						// get_gradient(vector<int>(frontier.begin(), frontier.end()), slope, intercept));
+						// if (j - x * slope - intercept < 0)
+						// 	continue;
+						frontier.push(cur);
+						group_map[i][j] = current_group;
+						cout << "New frontier: " << cur << endl;
+					}
+				}
+			}
+		}
+		if (p.x == a && p.y == b 
+				|| (sqrt((p.x - nodes.back().x)*(p.x - nodes.back().x)+(p.y - nodes.back().y)*(p.y - nodes.back().y)) > 13
+					&& (nodes.size() <= 1 || sqrt((p.x - nodes.end()[-2].x)*(p.x - nodes.end()[-2].x)+(p.y - nodes.end()[-2].y)*(p.y - nodes.end()[-2].y)) > 13))) {
+			nodes.push_back(p);
+		} else {
+			input[img.step * p.y + p.x ] = 0;
+		}
+	}
+	imshow("Exploration", img);
+	waitKey();
+	return nodes;
+}
+
 void* start_opencv(void * arg) {
-	// double imageSize = 600;
 	Mat expanded_src;
 	cvtColor( src, src_gray, CV_BGR2GRAY );
 	//Canny( src_gray, src_gray, thresh, thresh*2, 3 );
@@ -231,9 +295,11 @@ void* start_opencv(void * arg) {
 	erode( src_gray, src_gray, element );
 
 
-/*
+
 	// Skeletonization
 	Mat img = src_gray.clone();
+	double imageSize = 100;
+	resize(img,img,Size(),imageSize/img.cols,imageSize/img.rows,INTER_AREA);
 	bitwise_not(img, img);
 	threshold(img, img, 127, 255, THRESH_BINARY);
 	Mat skel(img.size(), CV_8UC1, Scalar(0));
@@ -256,9 +322,41 @@ void* start_opencv(void * arg) {
 		done = (max == 0);
 	} while (!done);
 	namedWindow("Skeleton", CV_WINDOW_NORMAL);
+	dilate(skel, skel, element2);
 	imshow("Skeleton", skel);
 	waitKey(0);
-	*/
+	// dilate(skel, skel, element2);
+	// imshow("Skeleton", skel);
+	// waitKey(0);
+
+	int groups = 0;
+	vector<vector<int>> group_map(skel.cols, vector<int>(skel.rows, 0));
+	unsigned char *input = (unsigned char*)(skel.data);
+	namedWindow( "Exploration", CV_WINDOW_NORMAL ); 	
+	for(int j = 0;j < skel.rows;j++){
+	    for(int i = 0;i < skel.cols;i++){
+	        unsigned char b = input[skel.step * j + i ];
+	        if (b == 255) {
+	        	Point cur = Point(i, j);
+	        	groups++;
+		        if (group_map[i][j] == 0) {
+		        	group_map[i][j] = groups;
+		        	vector<Point> nodes = image_explore(skel, input, group_map, groups, i, j);
+		        	skeletons.push_back(nodes);
+		        }
+	        }
+	    }
+	}
+
+	cout << "There are " << skeletons.size() << " letters." << endl;
+
+	for (int i = 0; i < skeletons.size(); ++i) {
+		for (int j = 0; j < skeletons.size(); ++j) {
+			cout << skeletons[i][j] << " ";
+		}
+		cout << endl;
+	}
+	
 
 	const char* source_window = "Source"; 	
 	namedWindow( source_window, CV_WINDOW_NORMAL ); 	
@@ -434,11 +532,14 @@ double adjustHeight(double y){
 	return height;
 }
 
-void DrawBot::draw(){
+void DrawBot::draw(bool use_skeleton){
+	vector<vector<Point> >& contours = use_skeleton ? image_contours : skeletons;
+	// if (use_skeleton)
+	// 	contours = image_contours;
+	// else
+	// 	contours = skeletons;
+
 	double imageSize = 80;
-	Mat fliped_src;
-	flip(src_gray, fliped_src, 1);
-	vector<vector<Point> > contours = GetContours(fliped_src);
 
 	double wait_t = 150000;//150000
 	double stepSize, stepX, stepY;
@@ -614,11 +715,19 @@ int main (int argc, char *argv[])
 
 	    if (cmd == "draw") {
 	        cout << "drawing figure" << endl;
-	        Picasso.draw();
+	        Mat fliped_src;
+			flip(src_gray, fliped_src, 1);
+			image_contours = GetContours(fliped_src);
+
+	        Picasso.draw(false);
 
 	    } else if (cmd == "square" || cmd == "circle" || cmd == "sine") {
 	        cout << "drawing " << cmd << endl;
 	    	Picasso.basic_shape(cmd);
+
+	    } else if (cmd == "skeleton") {
+	    	cout << "drawing skeleton of input picture!" << endl;
+	    	Picasso.draw(true);
 
 	    } else if (cmd == "quit") {
 	        Arm.running = false;
