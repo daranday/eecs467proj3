@@ -9,7 +9,7 @@ Follow the instructions in the `INSTALL` file provided in the root directory of 
 ### Who do I talk to? ###
 
 * Instructors:
-    + Prof. Benjamin Kuipers <kuipers@umich.edu>
+    + Prof. Edwin Olson <ebolson@umich.edu>
 * Other community or team contact:
     + GSI: Paul Foster <pfost@umich.edu>
     + GSI: Collin Johnson <collinej@umich.edu>
